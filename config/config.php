@@ -1,20 +1,24 @@
 <?php
 declare(strict_types=1);
 
-const APP_NAME = 'KosCycle';
-const APP_URL = 'http://localhost/KosCycle';
-const DB_HOST = '127.0.0.1';
-const DB_NAME = 'koscycle';
-const DB_USER = 'root';
-const DB_PASS = '';
+$localConfigPath = __DIR__ . '/.env.php';
+$localConfig = is_file($localConfigPath) ? require $localConfigPath : [];
+$localConfig = is_array($localConfig) ? $localConfig : [];
 
-const RECAPTCHA_SITE_KEY = '6Lc9HcQtAAAAACH-GCjzsJ5BYFArNrYAK7bdv0-H';
-const RECAPTCHA_SECRET_KEY = '6Lc9HcQtAAAAAGqhWp4Oc6_PvTZ0aDDo0v8oA7VM';
-const OTP_EXPIRY_MINUTES = 10;
-const OTP_MAX_ATTEMPTS = 5;
-const MAIL_FROM_EMAIL = 'ianjulliansutrisno@gmail.com';
-const MAIL_FROM_NAME = 'KosCycle';
-const SMTP_HOST = 'smtp.gmail.com';
-const SMTP_PORT = 587;
-const SMTP_USERNAME = 'ianjulliansutrisno@gmail.com';
-const SMTP_PASSWORD = 'rdmv zkzd itcs guwl';
+define('APP_NAME', (string) ($localConfig['APP_NAME'] ?? 'KosCycle'));
+define('APP_URL', (string) ($localConfig['APP_URL'] ?? 'http://localhost/KosCycle'));
+define('DB_HOST', (string) ($localConfig['DB_HOST'] ?? '127.0.0.1'));
+define('DB_NAME', (string) ($localConfig['DB_NAME'] ?? 'koscycle'));
+define('DB_USER', (string) ($localConfig['DB_USER'] ?? 'root'));
+define('DB_PASS', (string) ($localConfig['DB_PASS'] ?? ''));
+
+define('RECAPTCHA_SITE_KEY', (string) ($localConfig['RECAPTCHA_SITE_KEY'] ?? 'GANTI_DENGAN_SITE_KEY'));
+define('RECAPTCHA_SECRET_KEY', (string) ($localConfig['RECAPTCHA_SECRET_KEY'] ?? 'GANTI_DENGAN_SECRET_KEY'));
+define('OTP_EXPIRY_MINUTES', (int) ($localConfig['OTP_EXPIRY_MINUTES'] ?? 10));
+define('OTP_MAX_ATTEMPTS', (int) ($localConfig['OTP_MAX_ATTEMPTS'] ?? 5));
+define('MAIL_FROM_EMAIL', (string) ($localConfig['MAIL_FROM_EMAIL'] ?? ''));
+define('MAIL_FROM_NAME', (string) ($localConfig['MAIL_FROM_NAME'] ?? 'KosCycle'));
+define('SMTP_HOST', (string) ($localConfig['SMTP_HOST'] ?? 'smtp.gmail.com'));
+define('SMTP_PORT', (int) ($localConfig['SMTP_PORT'] ?? 587));
+define('SMTP_USERNAME', (string) ($localConfig['SMTP_USERNAME'] ?? ''));
+define('SMTP_PASSWORD', (string) ($localConfig['SMTP_PASSWORD'] ?? ''));
