@@ -17,6 +17,15 @@ $pageTitle = $pageTitle ?? APP_NAME;
     <link href="<?= APP_URL ?>/assets/css/refinements.css" rel="stylesheet">
 </head>
 <body>
+<div class="site-preloader" id="site-preloader" role="status" aria-label="Memuat KosCycle">
+    <div class="preloader-orbit" aria-hidden="true">
+        <span class="preloader-orbit-ring"></span>
+        <span class="preloader-orbit-dot"></span>
+        <span class="preloader-orbit-core"><span class="brand-dot"></span></span>
+    </div>
+    <div class="preloader-wordmark">Kos<span>Cycle</span></div>
+    <div class="preloader-track" aria-hidden="true"><span></span></div>
+</div>
 <div class="site-noise"></div>
 <nav class="navbar navbar-expand-lg fixed-top glass-nav">
     <div class="container">
