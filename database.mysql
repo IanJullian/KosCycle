@@ -1,0 +1,169 @@
+-- KOSCYCLE DATABASE SOURCE OF TRUTH
+-- IMPORTANT: no migration is used. Existing rows/tables are preserved where possible.
+CREATE DATABASE IF NOT EXISTS koscycle CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE koscycle;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  full_name VARCHAR(120) NOT NULL,
+  username VARCHAR(30) NOT NULL UNIQUE,
+  whatsapp VARCHAR(20) NOT NULL,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role ENUM('customer','seller','admin') NOT NULL DEFAULT 'customer',
+  status ENUM('active','inactive','suspended') NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- PRESERVED EXISTING OTP TABLE. Do not replace or remove this table.
+CREATE TABLE IF NOT EXISTS password_otps (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  channel ENUM('email') NOT NULL DEFAULT 'email',
+  destination VARCHAR(190) NOT NULL,
+  otp_hash VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_password_otps_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_password_otps_lookup (user_id, used_at, expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS categories (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(80) NOT NULL UNIQUE,
+  status ENUM('active','archived') NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS products (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  seller_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  slug VARCHAR(180) NOT NULL UNIQUE,
+  category VARCHAR(80) NOT NULL,
+  description TEXT NULL,
+  price INT UNSIGNED NOT NULL,
+  condition_label VARCHAR(80) NOT NULL DEFAULT 'layak pakai',
+  city VARCHAR(80) NOT NULL,
+  status ENUM('available','reserved','sold','archived') NOT NULL DEFAULT 'available',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_products_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+  INDEX idx_products_catalog (status, category, city),
+  INDEX idx_products_seller (seller_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS product_images (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  product_id BIGINT UNSIGNED NOT NULL,
+  image_path VARCHAR(255) NOT NULL,
+  sort_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS favorites (
+  user_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, product_id),
+  CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_favorites_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS product_inventory (
+  product_id BIGINT UNSIGNED PRIMARY KEY,
+  quantity INT UNSIGNED NOT NULL DEFAULT 0,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_inventory_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS carts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_carts_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS cart_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  cart_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  quantity INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT uq_cart_product UNIQUE (cart_id, product_id),
+  CONSTRAINT fk_cart_items_cart FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  buyer_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  seller_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('requested','accepted','completed','cancelled') NOT NULL DEFAULT 'requested',
+  note TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_buyer FOREIGN KEY (buyer_id) REFERENCES users(id),
+  CONSTRAINT fk_orders_product FOREIGN KEY (product_id) REFERENCES products(id),
+  CONSTRAINT fk_orders_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+  INDEX idx_orders_buyer (buyer_id),
+  INDEX idx_orders_seller (seller_id),
+  INDEX idx_orders_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  seller_id BIGINT UNSIGNED NOT NULL,
+  product_name VARCHAR(160) NOT NULL,
+  unit_price INT UNSIGNED NOT NULL,
+  quantity INT UNSIGNED NOT NULL,
+  line_total BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id),
+  CONSTRAINT fk_order_items_seller FOREIGN KEY (seller_id) REFERENCES users(id),
+  INDEX idx_order_items_seller (seller_id),
+  INDEX idx_order_items_product (product_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS order_status_history (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('requested','accepted','completed','cancelled') NOT NULL,
+  changed_by BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_order_status_history_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_status_history_user FOREIGN KEY (changed_by) REFERENCES users(id),
+  INDEX idx_order_history_order (order_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  buyer_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL,
+  review_text TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT uq_review_buyer_product UNIQUE (buyer_id, product_id),
+  CONSTRAINT fk_reviews_buyer FOREIGN KEY (buyer_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5)
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO categories (name) VALUES ('Furnitur'),('Organisasi'),('Dapur'),('Elektronik'),('Pakaian'),('Buku'),('Lainnya');
+INSERT IGNORE INTO product_inventory (product_id, quantity) SELECT id, 0 FROM products;
+
+-- Development admin account requested by project owner.
+-- INSERT IGNORE preserves an already-existing user record instead of overwriting it.
+INSERT IGNORE INTO users (full_name, username, whatsapp, email, password_hash, role, status)
+VALUES ('Admin KosCycle', 'KosaKataKita26', '6289695512607', 'admin@koscycle.local', '$2y$12$8jTHCiQfSro0PyoAHzzdVOwazseyhKtPIdV0J86CHIZVICOSXZgA2', 'admin', 'active');

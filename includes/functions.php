@@ -6,6 +6,15 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 
 if (session_status() === PHP_SESSION_NONE) {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
 
@@ -20,18 +29,24 @@ function redirect(string $url): never
     exit;
 }
 
+function page_url(string $page, array $params = []): string
+{
+    $query = array_merge(['page' => $page], $params);
+    return APP_URL . '/?' . http_build_query($query);
+}
+
 function csrf_token(): string
 {
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
-    return $_SESSION['csrf_token'];
+    return (string) $_SESSION['csrf_token'];
 }
 
 function verify_csrf(): bool
 {
     return isset($_POST['csrf_token'], $_SESSION['csrf_token'])
-        && hash_equals($_SESSION['csrf_token'], (string) $_POST['csrf_token']);
+        && hash_equals((string) $_SESSION['csrf_token'], (string) $_POST['csrf_token']);
 }
 
 function flash(string $key, ?string $message = null): ?string
@@ -40,14 +55,15 @@ function flash(string $key, ?string $message = null): ?string
         $_SESSION['flash'][$key] = $message;
         return null;
     }
+
     $value = $_SESSION['flash'][$key] ?? null;
     unset($_SESSION['flash'][$key]);
-    return $value;
+    return is_string($value) ? $value : null;
 }
 
 function old(string $key): string
 {
-    return e($_SESSION['old'][$key] ?? '');
+    return e((string) ($_SESSION['old'][$key] ?? ''));
 }
 
 function set_old(array $data): void
@@ -62,22 +78,50 @@ function clear_old(): void
 
 function is_post(): bool
 {
-    return $_SERVER['REQUEST_METHOD'] === 'POST';
+    return ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+}
+
+function recaptcha_configured(): bool
+{
+    return RECAPTCHA_SITE_KEY !== 'GANTI_DENGAN_SITE_KEY'
+        && RECAPTCHA_SECRET_KEY !== 'GANTI_DENGAN_SECRET_KEY';
 }
 
 function recaptcha_valid(?string $response): bool
 {
-    if (RECAPTCHA_SECRET_KEY === 'GANTI_DENGAN_SECRET_KEY') {
-        return true;
+    if (!recaptcha_configured()) {
+        return APP_ENV === 'local';
     }
+
     if (!$response) {
         return false;
     }
-    $payload = http_build_query(['secret' => RECAPTCHA_SECRET_KEY, 'response' => $response]);
-    $result = @file_get_contents('https://www.google.com/recaptcha/api/siteverify', false, stream_context_create([
-        'http' => ['method' => 'POST', 'header' => "Content-Type: application/x-www-form-urlencoded\r\n", 'content' => $payload],
-    ]));
-    return $result !== false && (json_decode($result, true)['success'] ?? false) === true;
+
+    $payload = http_build_query([
+        'secret' => RECAPTCHA_SECRET_KEY,
+        'response' => $response,
+        'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
+    ]);
+
+    $result = @file_get_contents(
+        'https://www.google.com/recaptcha/api/siteverify',
+        false,
+        stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                'content' => $payload,
+                'timeout' => 5,
+            ],
+        ])
+    );
+
+    if ($result === false) {
+        return false;
+    }
+
+    $json = json_decode($result, true);
+    return is_array($json) && ($json['success'] ?? false) === true;
 }
 
 function format_price(int $price): string
@@ -96,7 +140,8 @@ function deliver_otp(string $channel, string $destination, string $otp): bool
     if ($channel !== 'email') {
         return false;
     }
-    if (SMTP_PASSWORD === '') {
+
+    if (SMTP_PASSWORD === '' || SMTP_USERNAME === '' || MAIL_FROM_EMAIL === '') {
         return false;
     }
 
@@ -114,6 +159,7 @@ function deliver_otp(string $channel, string $destination, string $otp): bool
         $mailer->addAddress($destination);
         $mailer->Subject = APP_NAME . ' - Kode OTP';
         $mailer->Body = "Kode OTP Anda: {$otp}\nBerlaku selama " . OTP_EXPIRY_MINUTES . ' menit.';
+
         return $mailer->send();
     } catch (\Throwable) {
         return false;

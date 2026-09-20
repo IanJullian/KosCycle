@@ -7,11 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setTimeout(() => preloader.remove(), 650);
   };
 
-  if (document.readyState === 'complete') {
-    hidePreloader();
-  } else {
-    window.addEventListener('load', hidePreloader, { once: true });
-  }
+  if (document.readyState === 'complete') hidePreloader();
+  else window.addEventListener('load', hidePreloader, { once: true });
 
   document.querySelectorAll('a[href]').forEach((link) => {
     link.addEventListener('click', (event) => {
@@ -19,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const isPageNavigation = destination.origin === window.location.origin
         && destination.pathname === window.location.pathname
         && destination.search !== window.location.search;
-
       if (isPageNavigation && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
         event.preventDefault();
         document.body.classList.add('page-leaving');
@@ -32,11 +28,32 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.toggle-password').forEach((button) => {
     button.addEventListener('click', () => {
       const input = button.parentElement.querySelector('input');
+      if (!input) return;
       input.type = input.type === 'password' ? 'text' : 'password';
-      button.querySelector('i').classList.toggle('bi-eye');
-      button.querySelector('i').classList.toggle('bi-eye-slash');
+      const icon = button.querySelector('i');
+      if (icon) {
+        icon.classList.toggle('bi-eye');
+        icon.classList.toggle('bi-eye-slash');
+      }
     });
   });
+
+  const roleChoices = document.querySelectorAll('.role-choice');
+  if (roleChoices.length) {
+    const syncRoleVisual = () => {
+      roleChoices.forEach((choice) => {
+        const input = choice.querySelector('input[name="role"]');
+        choice.classList.toggle('is-selected', input?.checked === true);
+      });
+    };
+    roleChoices.forEach((choice) => {
+      const input = choice.querySelector('input[name="role"]');
+      if (!input) return;
+      choice.addEventListener('click', () => { input.checked = true; input.dispatchEvent(new Event('change', { bubbles: true })); });
+      input.addEventListener('change', syncRoleVisual);
+    });
+    syncRoleVisual();
+  }
 
   document.querySelectorAll('a[href^="#"]').forEach((link) => {
     link.addEventListener('click', (event) => {

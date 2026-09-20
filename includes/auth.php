@@ -2,25 +2,38 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/ui.php';
 
 function current_user(): ?array
 {
     if (empty($_SESSION['user_id'])) {
         return null;
     }
-    static $user = false;
-    if ($user === false) {
-        $stmt = db()->prepare('SELECT id, full_name, username, whatsapp, email, role FROM users WHERE id = ? AND status = "active"');
-        $stmt->execute([$_SESSION['user_id']]);
+
+    static $loaded = false;
+    static $user = null;
+
+    if (!$loaded) {
+        $loaded = true;
+        $stmt = db()->prepare(
+            'SELECT id, full_name, username, whatsapp, email, role, status, created_at
+             FROM users WHERE id = ? AND status = "active" LIMIT 1'
+        );
+        $stmt->execute([(int) $_SESSION['user_id']]);
         $user = $stmt->fetch() ?: null;
+        if (!$user) {
+            unset($_SESSION['user_id']);
+        }
     }
+
     return $user;
 }
 
 function require_guest(): void
 {
-    if (current_user()) {
-        redirect(APP_URL . '/?page=account');
+    $user = current_user();
+    if ($user) {
+        redirect(dashboard_url((string) $user['role']));
     }
 }
 
@@ -28,6 +41,6 @@ function require_auth(): void
 {
     if (!current_user()) {
         flash('error', 'Silakan login terlebih dahulu untuk melanjutkan.');
-        redirect(APP_URL . '/?page=login');
+        redirect(page_url('login'));
     }
 }
