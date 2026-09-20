@@ -32,4 +32,45 @@
 .role-choice input[type="radio"]{position:absolute;width:1px;height:1px;margin:-1px;padding:0;opacity:0;pointer-events:none;clip:rect(0 0 0 0);clip-path:inset(50%)}
 .role-choice{cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
 .role-choice.is-selected{border-color:var(--teal);background:rgba(168,216,200,.22);box-shadow:0 10px 24px rgba(40,125,108,.10)}
+
+/* Responsive interaction layer: keep dense role dashboards usable on narrow screens. */
+html{overflow-x:hidden}
+body{min-width:320px}
+.navbar .container{min-width:0}
+.navbar-collapse{padding:10px 0}
+.navbar-collapse.show{background:rgba(245,245,239,.97);border-radius:0 0 16px 16px}
+.navbar-nav{min-width:0}
+.nav-link{white-space:nowrap}
+.section-heading h2,.dashboard-top h1{overflow-wrap:anywhere}
+.glass-card,.metric-card,.admin-shortcut,.dashboard-action{min-width:0}
+.table-responsive{border-radius:14px;-webkit-overflow-scrolling:touch}
+.table-responsive table{min-width:680px}
+.form-control,.form-select{min-width:0}
+.btn{white-space:normal}
+.product-card,.dashboard-action,.admin-shortcut,.metric-card{animation:surface-rise .65s ease both}
+.dashboard-grid>*:nth-child(2),.admin-shortcuts>*:nth-child(2),.seller-action-grid>*:nth-child(2){animation-delay:.06s}
+.dashboard-grid>*:nth-child(3),.admin-shortcuts>*:nth-child(3),.seller-action-grid>*:nth-child(3){animation-delay:.12s}
+@keyframes surface-rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(max-width:991px){
+	.navbar-collapse{max-height:calc(100vh - 76px);overflow:auto}
+	.navbar-nav{align-items:stretch!important}
+	.navbar-nav .nav-link{padding:.65rem .25rem}
+	.nav-actions{padding-top:.5rem;border-top:1px solid var(--line);justify-content:space-between}
+	.section-heading h2{font-size:clamp(2.2rem,7vw,2.7rem)}
+}
+@media(max-width:575px){
+	.navbar .container{padding-left:16px;padding-right:16px}
+	.navbar-brand{font-size:1.1rem}
+	.glass-card{border-radius:16px}
+	.dashboard-top{align-items:stretch}
+	.dashboard-top .btn,.dashboard-top .d-flex{width:100%}
+	.dashboard-top .d-flex .btn{flex:1}
+	.admin-section-title{margin-top:1.5rem}
+	.metric-card{padding:14px}
+	.metric-card strong{font-size:1.45rem;overflow-wrap:anywhere}
+	.auth-shell-wide .auth-panel{padding:20px 15px}
+	.role-choice-grid{grid-template-columns:1fr!important}
+	.otp-input{font-size:1.45rem}
+}
+@media(prefers-reduced-motion:reduce){.product-card,.dashboard-action,.admin-shortcut,.metric-card{animation:none;transition:none}}
 .role-choice.is-selected .role-choice-check{opacity:1}

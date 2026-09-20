@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-$localConfigPath = __DIR__ . '/.env.php';
+$localConfigPath = is_file(__DIR__ . '/.env.php')
+	? __DIR__ . '/.env.php'
+	: __DIR__ . '/.env';
 $localConfig = is_file($localConfigPath) ? require $localConfigPath : [];
 $localConfig = is_array($localConfig) ? $localConfig : [];
 

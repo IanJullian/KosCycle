@@ -38,6 +38,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.querySelectorAll('.navbar-collapse .nav-link, .navbar-collapse .dropdown-item').forEach((link) => {
+    link.addEventListener('click', () => {
+      const menu = link.closest('.navbar-collapse');
+      if (menu?.classList.contains('show') && window.bootstrap) {
+        window.bootstrap.Collapse.getOrCreateInstance(menu).hide();
+      }
+    });
+  });
+
   const roleChoices = document.querySelectorAll('.role-choice');
   if (roleChoices.length) {
     const syncRoleVisual = () => {
