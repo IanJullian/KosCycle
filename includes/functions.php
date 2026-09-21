@@ -83,14 +83,16 @@ function is_post(): bool
 
 function recaptcha_configured(): bool
 {
-    return RECAPTCHA_SITE_KEY !== 'GANTI_DENGAN_SITE_KEY'
-        && RECAPTCHA_SECRET_KEY !== 'GANTI_DENGAN_SECRET_KEY';
+    return RECAPTCHA_SITE_KEY !== ''
+        && RECAPTCHA_SECRET_KEY !== ''
+    && RECAPTCHA_SITE_KEY !== 'GANTI_DENGAN_SITE_KEY'
+    && RECAPTCHA_SECRET_KEY !== 'GANTI_DENGAN_SECRET_KEY';
 }
 
-function recaptcha_valid(?string $response): bool
+function recaptcha_valid(?string $response, string $expectedAction): bool
 {
     if (!recaptcha_configured()) {
-        return APP_ENV === 'local';
+        return false;
     }
 
     if (!$response) {
@@ -103,25 +105,44 @@ function recaptcha_valid(?string $response): bool
         'remoteip' => $_SERVER['REMOTE_ADDR'] ?? '',
     ]);
 
-    $result = @file_get_contents(
-        'https://www.google.com/recaptcha/api/siteverify',
-        false,
-        stream_context_create([
-            'http' => [
-                'method' => 'POST',
-                'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
-                'content' => $payload,
-                'timeout' => 5,
-            ],
-        ])
-    );
+    $result = false;
+    if (function_exists('curl_init')) {
+        $curl = curl_init('https://www.google.com/recaptcha/api/siteverify');
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 10,
+        ]);
+        $result = curl_exec($curl);
+        curl_close($curl);
+    }
+
+    if ($result === false) {
+        $result = @file_get_contents(
+            'https://www.google.com/recaptcha/api/siteverify',
+            false,
+            stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+                    'content' => $payload,
+                    'timeout' => 10,
+                ],
+            ])
+        );
+    }
 
     if ($result === false) {
         return false;
     }
 
     $json = json_decode($result, true);
-    return is_array($json) && ($json['success'] ?? false) === true;
+    return is_array($json)
+        && ($json['success'] ?? false) === true
+        && ($json['action'] ?? '') === $expectedAction
+        && (float) ($json['score'] ?? 0) >= 0.5;
 }
 
 function format_price(int $price): string

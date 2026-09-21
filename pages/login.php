@@ -9,7 +9,7 @@ if (is_post()) {
     $password = $_POST['password'] ?? '';
     if ($identity === '') $errors[] = 'Username atau email wajib diisi.';
     if ($password === '') $errors[] = 'Password wajib diisi.';
-    if (!recaptcha_valid($_POST['g-recaptcha-response'] ?? null)) $errors[] = 'Verifikasi reCAPTCHA belum berhasil.';
+    if (!recaptcha_valid($_POST['g-recaptcha-response'] ?? null, 'login')) $errors[] = 'Verifikasi reCAPTCHA belum berhasil.';
 
     if (!$errors) {
         $stmt = db()->prepare('SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1');
@@ -44,8 +44,9 @@ require __DIR__ . '/../includes/header.php';
                 <div><h2>Masuk ke KosCycle</h2><p>Gunakan akunmu untuk melanjutkan.</p></div>
             </div>
             <?php if ($errors): ?><div class="alert alert-danger small"><?= implode('<br>', array_map('e', $errors)) ?></div><?php endif; ?>
-            <form method="post" novalidate>
+            <form method="post" novalidate data-recaptcha-action="login">
                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="g-recaptcha-response" value="">
                 <div class="mb-3">
                     <label class="form-label">Username atau email</label>
                     <input class="form-control" type="text" name="identity" value="<?= old('identity') ?>" placeholder="kamu@email.com" autocomplete="username">
@@ -58,16 +59,12 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
                 <div class="d-flex justify-content-end mb-4"><a href="<?= e(page_url('forgot-password')) ?>" class="small text-link">Lupa password?</a></div>
-                <?php if (recaptcha_configured()): ?>
-                    <div class="g-recaptcha mb-3" data-sitekey="<?= e(RECAPTCHA_SITE_KEY) ?>"></div>
-                <?php else: ?>
-                    <div class="recaptcha-placeholder mb-3"><i class="bi bi-shield-check"></i> reCAPTCHA dalam mode local.</div>
-                <?php endif; ?>
+                <div class="recaptcha-placeholder mb-3"><i class="bi bi-shield-check"></i> Perlindungan reCAPTCHA aktif.</div>
                 <button class="btn btn-primary w-100" type="submit">Masuk sekarang <i class="bi bi-arrow-right ms-2"></i></button>
             </form>
             <p class="auth-switch">Belum punya akun? <a href="<?= e(page_url('register')) ?>">Daftar sekarang</a></p>
         </div>
     </div>
 </section>
-<?php if (recaptcha_configured()): ?><script src="https://www.google.com/recaptcha/api.js" async defer></script><?php endif; ?>
+<?php if (recaptcha_configured()): ?><script src="https://www.google.com/recaptcha/api.js?render=<?= e(RECAPTCHA_SITE_KEY) ?>" async defer></script><script>document.querySelector('form[data-recaptcha-action="login"]').addEventListener('submit', function (event) { var form = this; if (form.dataset.recaptchaReady === '1') return; event.preventDefault(); grecaptcha.ready(function () { grecaptcha.execute('<?= e(RECAPTCHA_SITE_KEY) ?>', { action: 'login' }).then(function (token) { form.querySelector('[name="g-recaptcha-response"]').value = token; form.dataset.recaptchaReady = '1'; form.submit(); }); }); });</script><?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>
