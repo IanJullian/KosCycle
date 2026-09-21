@@ -1,9 +1,9 @@
 <?php
 require_once __DIR__.'/../includes/authorization.php';require_role('admin');require_once __DIR__.'/../includes/Repositories/UserRepository.php';
-$repo=new UserRepository();$errors=[];$data=['full_name'=>'','username'=>'','whatsapp'=>'','email'=>'','role'=>'seller','status'=>'active'];
+$repo=new UserRepository();$errors=[];$data=['full_name'=>'','username'=>'','shop_name'=>'','shop_city'=>'','shop_description'=>'','whatsapp'=>'','email'=>'','role'=>'seller','status'=>'active'];
 if(is_post()){
  if(!verify_csrf())$errors[]='Sesi formulir tidak valid.';
- $data=['full_name'=>trim($_POST['full_name']??''),'username'=>trim($_POST['username']??''),'whatsapp'=>normalize_phone(trim($_POST['whatsapp']??'')),'email'=>trim($_POST['email']??''),'role'=>$_POST['role']??'','status'=>$_POST['status']??'active'];$password=$_POST['password']??'';
+ $data=['full_name'=>trim($_POST['full_name']??''),'username'=>trim($_POST['username']??''),'shop_name'=>trim($_POST['shop_name']??''),'shop_city'=>trim($_POST['shop_city']??''),'shop_description'=>trim($_POST['shop_description']??''),'whatsapp'=>normalize_phone(trim($_POST['whatsapp']??'')),'email'=>trim($_POST['email']??''),'role'=>$_POST['role']??'','status'=>$_POST['status']??'active'];$password=$_POST['password']??'';
  if(mb_strlen($data['full_name'])<3||mb_strlen($data['full_name'])>120)$errors[]='Nama lengkap 3-120 karakter.';
  if(!preg_match('/^[a-zA-Z0-9_]{4,30}$/',$data['username']))$errors[]='Username 4-30 karakter.';
  if(!filter_var($data['email'],FILTER_VALIDATE_EMAIL))$errors[]='Email tidak valid.';

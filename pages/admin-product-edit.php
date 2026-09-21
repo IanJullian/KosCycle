@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/Repositories/CategoryRepository.php';
 require_once __DIR__ . '/../includes/validation.php';
 $id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);
 if(!$id){http_response_code(400);exit('Produk tidak valid.');}
-$repo=new ProductRepository();$product=$repo->find((int)$id);
+$repo=new ProductRepository();$product=$repo->find((int)$id,false);
 if(!$product){http_response_code(404);exit('Produk tidak ditemukan.');}
 $categories=(new CategoryRepository())->all();
 $errors=[];

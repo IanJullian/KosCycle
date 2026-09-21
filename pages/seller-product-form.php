@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__.'/../includes/authorization.php';require_role('seller');require_once __DIR__.'/../includes/Repositories/ProductRepository.php';require_once __DIR__.'/../includes/Repositories/CategoryRepository.php';require_once __DIR__.'/../includes/validation.php';
-$repo=new ProductRepository();$categories=(new CategoryRepository())->active();$sellerId=(int)$_SESSION['user_id'];$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);$editing=(bool)$id;$existing=$editing?$repo->find((int)$id):null;
+$repo=new ProductRepository();$categories=(new CategoryRepository())->active();$sellerId=(int)$_SESSION['user_id'];$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);$editing=(bool)$id;$existing=$editing?$repo->find((int)$id,false):null;
 if($editing&&(!$existing||(int)$existing['seller_id']!==$sellerId)){http_response_code(404);exit('Produk tidak ditemukan.');}
 $data=$existing?['name'=>$existing['name'],'category'=>$existing['category'],'description'=>$existing['description'],'price'=>$existing['price'],'condition_label'=>$existing['condition_label'],'city'=>$existing['city'],'stock'=>$existing['stock'],'status'=>$existing['status']]:['name'=>'','category'=>'','description'=>'','price'=>'','condition_label'=>'layak pakai','city'=>'','stock'=>0,'status'=>'available'];$errors=[];
 if(is_post()){

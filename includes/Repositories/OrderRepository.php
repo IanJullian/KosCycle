@@ -12,9 +12,10 @@ class OrderRepository{
   $pdo=db();$pdo->beginTransaction();
   try{
    $sql='SELECT id,status,buyer_id FROM orders WHERE id=? LIMIT 1 FOR UPDATE';$st=$pdo->prepare($sql);$st->execute([$orderId]);$order=$st->fetch();if(!$order)throw new RuntimeException('Pesanan tidak ditemukan.');
-   if($sellerId!==null){$check=$pdo->prepare('SELECT 1 FROM order_items WHERE order_id=? AND seller_id=? LIMIT 1');$check->execute([$orderId,$sellerId]);if(!$check->fetchColumn())throw new RuntimeException('Pesanan bukan milik seller.');}
+   $transitions=['requested'=>['accepted','cancelled'],'accepted'=>['completed','cancelled'],'completed'=>[],'cancelled'=>[]];if(!isset($transitions[$order['status']])||!in_array($status,$transitions[$order['status']],true))throw new RuntimeException('Transisi status pesanan tidak valid.');
+  if($sellerId!==null){$check=$pdo->prepare('SELECT 1 FROM order_items WHERE order_id=? AND seller_id=? LIMIT 1');$check->execute([$orderId,$sellerId]);$sellerCount=$pdo->prepare('SELECT COUNT(DISTINCT seller_id) FROM order_items WHERE order_id=?');$sellerCount->execute([$orderId]);if(!$check->fetchColumn()||(int)$sellerCount->fetchColumn()!==1)throw new RuntimeException('Pesanan bukan pesanan tunggal seller ini.');}
    if($status==='cancelled' && $order['status']!=='cancelled'){
-     $items=$pdo->prepare('SELECT product_id,quantity FROM order_items WHERE order_id=?');$items->execute([$orderId]);
+     $items=$sellerId===null?$pdo->prepare('SELECT product_id,quantity FROM order_items WHERE order_id=?'):$pdo->prepare('SELECT product_id,quantity FROM order_items WHERE order_id=? AND seller_id=?');$sellerId===null?$items->execute([$orderId]):$items->execute([$orderId,$sellerId]);
      $itemsRows=$items->fetchAll();
      foreach($itemsRows as $item){
        $up=$pdo->prepare('INSERT INTO product_inventory(product_id,quantity) VALUES(?,?) ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity),updated_at=CURRENT_TIMESTAMP');$up->execute([(int)$item['product_id'],(int)$item['quantity']]);

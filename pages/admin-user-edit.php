@@ -3,7 +3,7 @@ require_once __DIR__.'/../includes/authorization.php';require_role('admin');requ
 $repo=new UserRepository();$id=filter_input(INPUT_GET,'id',FILTER_VALIDATE_INT);if(!$id) { http_response_code(400); exit('User tidak valid.'); }$user=$repo->findById((int)$id);if(!$user){http_response_code(404);exit('User tidak ditemukan.');}$me=(int)$_SESSION['user_id'];$errors=[];$data=$user;
 if(is_post()){
  if(!verify_csrf())$errors[]='Sesi formulir tidak valid.';
- $data=['full_name'=>trim($_POST['full_name']??''),'username'=>trim($_POST['username']??''),'whatsapp'=>normalize_phone(trim($_POST['whatsapp']??'')),'email'=>trim($_POST['email']??''),'role'=>$_POST['role']??'','status'=>$_POST['status']??'','password'=>$_POST['password']??''];
+ $data=['full_name'=>trim($_POST['full_name']??''),'username'=>trim($_POST['username']??''),'shop_name'=>trim($_POST['shop_name']??''),'shop_city'=>trim($_POST['shop_city']??''),'shop_description'=>trim($_POST['shop_description']??''),'whatsapp'=>normalize_phone(trim($_POST['whatsapp']??'')),'email'=>trim($_POST['email']??''),'role'=>$_POST['role']??'','status'=>$_POST['status']??'','password'=>$_POST['password']??''];
  if(mb_strlen($data['full_name'])<3||mb_strlen($data['full_name'])>120)$errors[]='Nama lengkap 3-120 karakter.';
  if(!preg_match('/^[a-zA-Z0-9_]{4,30}$/',$data['username']))$errors[]='Username 4-30 karakter.';
  if(!filter_var($data['email'],FILTER_VALIDATE_EMAIL))$errors[]='Email tidak valid.';

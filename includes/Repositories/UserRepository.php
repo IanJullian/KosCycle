@@ -7,11 +7,11 @@ class UserRepository {
  public function activeSellers():array{return db()->query("SELECT id,full_name,username,shop_name,shop_city,shop_description FROM users WHERE role='seller' AND status='active' ORDER BY COALESCE(shop_name, full_name), full_name")->fetchAll();}
  public function updateProfile(int $id,array $data):void{$st=db()->prepare('UPDATE users SET full_name=?,username=?,shop_name=?,shop_city=?,shop_description=?,whatsapp=?,email=? WHERE id=?');$st->execute([$data['full_name'],$data['username'],$data['shop_name'],$data['shop_city'],$data['shop_description'],$data['whatsapp'],$data['email'],$id]);}
  public function updateAdmin(int $id,array $data):void{
-   $fields=['full_name','username','whatsapp','email','role','status']; $values=[]; $sets=[];
-   foreach($fields as $field){$sets[]=$field.'=?';$values[]=$data[$field];}
+  $fields=['full_name','username','shop_name','shop_city','shop_description','whatsapp','email','role','status']; $values=[]; $sets=[];
+  foreach($fields as $field){$sets[]=$field.'=?';$values[]=$data[$field]??null;}
    if(!empty($data['password'])){$sets[]='password_hash=?';$values[]=password_hash($data['password'],PASSWORD_DEFAULT);}
    $values[]=$id; $st=db()->prepare('UPDATE users SET '.implode(',',$sets).' WHERE id=?'); $st->execute($values);
  }
  public function existsIdentity(string $username,string $email,?int $exceptId=null):bool{ $sql='SELECT 1 FROM users WHERE (username=? OR email=?)'; $params=[$username,$email]; if($exceptId!==null){$sql.=' AND id<>?';$params[]=$exceptId;} $sql.=' LIMIT 1'; $st=db()->prepare($sql);$st->execute($params);return(bool)$st->fetchColumn();}
- public function createByAdmin(array $data):void{$st=db()->prepare('INSERT INTO users(full_name,username,whatsapp,email,password_hash,role,status) VALUES(?,?,?,?,?,?,?)');$st->execute([$data['full_name'],$data['username'],$data['whatsapp'],$data['email'],password_hash($data['password'],PASSWORD_DEFAULT),$data['role'],$data['status']]);}
+ public function createByAdmin(array $data):void{$st=db()->prepare('INSERT INTO users(full_name,username,shop_name,shop_city,shop_description,whatsapp,email,password_hash,role,status) VALUES(?,?,?,?,?,?,?,?,?,?)');$st->execute([$data['full_name'],$data['username'],$data['shop_name']??null,$data['shop_city']??null,$data['shop_description']??null,$data['whatsapp'],$data['email'],password_hash($data['password'],PASSWORD_DEFAULT),$data['role'],$data['status']]);}
 }
