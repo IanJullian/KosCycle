@@ -16,7 +16,7 @@ function current_user(): ?array
     if (!$loaded) {
         $loaded = true;
         $stmt = db()->prepare(
-            'SELECT id, full_name, username, whatsapp, email, role, status, created_at
+            'SELECT id, full_name, username, shop_name, whatsapp, email, role, status, created_at
              FROM users WHERE id = ? AND status = "active" LIMIT 1'
         );
         $stmt->execute([(int) $_SESSION['user_id']]);

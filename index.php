@@ -18,6 +18,6 @@ if ($action === 'logout') {
 }
 
 $page = $_GET['page'] ?? 'home';
-$allowedPages = ['home','login','register','forgot-password','verify-otp','reset-password','account','profile','customer-dashboard','marketplace','product-detail','cart','checkout','orders','review','seller-dashboard','seller-products','seller-product-form','seller-orders','seller-sales','admin-dashboard','admin-users','admin-user-form','admin-user-edit','admin-categories','admin-products','admin-product-form','admin-product-edit','admin-orders','admin-reviews','admin-reports'];
+$allowedPages = ['home','login','register','register-customer','register-seller','forgot-password','verify-otp','reset-password','account','profile','customer-dashboard','marketplace','product-detail','cart','checkout','orders','review','seller-dashboard','seller-products','seller-product-form','seller-orders','seller-sales','admin-dashboard','admin-users','admin-user-form','admin-user-edit','admin-categories','admin-products','admin-product-form','admin-product-edit','admin-orders','admin-reviews','admin-reports'];
 if (!in_array($page, $allowedPages, true)) $page = 'home';
 require __DIR__ . '/pages/' . $page . '.php';

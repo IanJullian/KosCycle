@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 class UserRepository {
- public function findById(int $id):?array{ $st=db()->prepare('SELECT id,full_name,username,whatsapp,email,role,status,created_at FROM users WHERE id=? LIMIT 1'); $st->execute([$id]); return $st->fetch()?:null; }
+ public function findById(int $id):?array{ $st=db()->prepare('SELECT id,full_name,username,shop_name,shop_city,shop_description,whatsapp,email,role,status,created_at FROM users WHERE id=? LIMIT 1'); $st->execute([$id]); return $st->fetch()?:null; }
  public function dashboardCounts():array{return ['users'=>(int)db()->query('SELECT COUNT(*) FROM users')->fetchColumn(),'customers'=>(int)db()->query("SELECT COUNT(*) FROM users WHERE role='customer'")->fetchColumn(),'sellers'=>(int)db()->query("SELECT COUNT(*) FROM users WHERE role='seller'")->fetchColumn(),'admins'=>(int)db()->query("SELECT COUNT(*) FROM users WHERE role='admin'")->fetchColumn()];}
- public function all():array{return db()->query('SELECT id,full_name,username,whatsapp,email,role,status,created_at FROM users ORDER BY id DESC')->fetchAll();}
- public function activeSellers():array{return db()->query("SELECT id,full_name,username FROM users WHERE role='seller' AND status='active' ORDER BY full_name")->fetchAll();}
- public function updateProfile(int $id,array $data):void{$st=db()->prepare('UPDATE users SET full_name=?,username=?,whatsapp=?,email=? WHERE id=?');$st->execute([$data['full_name'],$data['username'],$data['whatsapp'],$data['email'],$id]);}
+ public function all():array{return db()->query('SELECT id,full_name,username,shop_name,shop_city,shop_description,whatsapp,email,role,status,created_at FROM users ORDER BY id DESC')->fetchAll();}
+ public function activeSellers():array{return db()->query("SELECT id,full_name,username,shop_name,shop_city,shop_description FROM users WHERE role='seller' AND status='active' ORDER BY COALESCE(shop_name, full_name), full_name")->fetchAll();}
+ public function updateProfile(int $id,array $data):void{$st=db()->prepare('UPDATE users SET full_name=?,username=?,shop_name=?,shop_city=?,shop_description=?,whatsapp=?,email=? WHERE id=?');$st->execute([$data['full_name'],$data['username'],$data['shop_name'],$data['shop_city'],$data['shop_description'],$data['whatsapp'],$data['email'],$id]);}
  public function updateAdmin(int $id,array $data):void{
    $fields=['full_name','username','whatsapp','email','role','status']; $values=[]; $sets=[];
    foreach($fields as $field){$sets[]=$field.'=?';$values[]=$data[$field];}
