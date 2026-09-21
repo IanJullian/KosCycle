@@ -9,7 +9,9 @@ if (!$id) { http_response_code(404); exit('Produk tidak ditemukan.'); }
 $product = (new ProductRepository())->find((int)$id);
 if (!$product) { http_response_code(404); exit('Produk tidak ditemukan.'); }
 $reviews = (new ReviewRepository())->forProduct((int)$id);
-$canReview = current_user() && current_role() === 'customer' && (new ReviewRepository())->canReview((int)$_SESSION['user_id'], (int)$id) && !(new ReviewRepository())->exists((int)$_SESSION['user_id'], (int)$id);
+$reviewRepo = new ReviewRepository();
+$hasReview = current_user() && current_role() === 'customer' && $reviewRepo->exists((int)$_SESSION['user_id'], (int)$id);
+$canReview = current_user() && current_role() === 'customer' && !$hasReview && $reviewRepo->canReview((int)$_SESSION['user_id'], (int)$id);
 $message = null;
 if (is_post()) {
     require_auth();
@@ -38,11 +40,11 @@ require __DIR__ . '/../includes/header.php';
 <div class="col-lg-6"><span class="eyebrow"><?= e($product['category']) ?></span><h1 class="mt-3"><?= e($product['name']) ?></h1><p class="display-6"><?= format_price((int)$product['price']) ?></p><p class="text-muted"><?= nl2br(e($product['description'] ?? '')) ?></p>
 <div class="row g-2 text-muted small mb-4"><div class="col-6">Kondisi: <strong><?= e($product['condition_label']) ?></strong></div><div class="col-6">Kota: <strong><?= e($product['city']) ?></strong></div><div class="col-6">Seller: <strong><?= e($product['seller_name']) ?></strong></div><div class="col-6">Stok: <strong><?= (int)$product['stock'] ?></strong></div></div>
 <?php if($message): ?><div class="alert alert-danger"><?= e($message) ?></div><?php endif; ?>
-<?php if(current_role()==='customer'): ?><form method="post" class="glass-card p-3"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><div class="row g-2 align-items-end"><div class="col-4"><label class="form-label">Jumlah</label><input class="form-control" type="number" min="1" max="<?= (int)$product['stock'] ?>" name="quantity" value="1"></div><div class="col-8"><button class="btn btn-primary w-100" <?= ((int)$product['stock']<1 || $product['status']!=='available')?'disabled':'' ?>>Tambah ke keranjang</button></div></div></form>
+<?php if(current_role()==='customer'): ?><form method="post" class="glass-card p-3"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><div class="row g-2 align-items-end"><div class="col-4"><label class="form-label">Jumlah</label><input class="form-control" type="number" min="1" max="<?= (int)$product['stock'] ?>" name="quantity" value="1"></div><div class="col-8"><button class="btn btn-primary w-100" <?= ((int)$product['stock']<1 || $product['status']!=='available')?'disabled':'' ?>><?= $product['status']==='available' ? 'Tambah ke keranjang' : 'Produk tidak tersedia' ?></button></div></div></form>
 <?php elseif(!current_user()): ?><a class="btn btn-primary" href="<?= e(page_url('login')) ?>">Masuk untuk memesan</a><?php endif; ?>
 </div></div>
 <div class="glass-card p-4 mt-5"><span class="eyebrow">Ulasan</span><h2 class="mt-2"><?= number_format((float)($product['avg_rating'] ?? 0),1) ?>/5</h2>
-<?php if($canReview): ?><a class="btn btn-sm btn-soft" href="<?= e(page_url('review',['product_id'=>$product['id']])) ?>">Tulis ulasan</a><?php endif; ?>
+<?php if($canReview): ?><a class="btn btn-sm btn-soft" href="<?= e(page_url('review',['product_id'=>$product['id']])) ?>"><i class="bi bi-star me-1"></i>Tulis ulasan</a><?php elseif($hasReview): ?><span class="badge text-bg-light">Kamu sudah mengulas produk ini</span><?php elseif(current_role()==='customer'): ?><p class="text-muted small mb-0">Ulasan tersedia setelah pesanan berstatus selesai.</p><?php endif; ?>
 <div class="mt-4"><?php foreach($reviews as $r): ?><div class="border-bottom py-3"><strong><?= e($r['full_name']) ?></strong><div>Rating: <?= (int)$r['rating'] ?>/5</div><p class="text-muted mb-0"><?= nl2br(e($r['review_text'])) ?></p></div><?php endforeach; ?></div></div>
 </div></section>
 <?php require __DIR__ . '/../includes/footer.php'; ?>
