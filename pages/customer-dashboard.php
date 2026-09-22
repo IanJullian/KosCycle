@@ -1,6 +1,63 @@
 <?php
-require_once __DIR__ . '/../includes/authorization.php';require_role('customer');require_once __DIR__ . '/../includes/Repositories/OrderRepository.php';require_once __DIR__ . '/../includes/Repositories/ProductRepository.php';
-$uid=(int)$_SESSION['user_id'];$orders=(new OrderRepository())->byBuyer($uid);$products=(new ProductRepository())->featured(4);$open=count(array_filter($orders,fn($o)=>in_array($o['status'],['requested','accepted'],true)));$completed=count(array_filter($orders,fn($o)=>$o['status']==='completed'));
-$pageTitle='Dashboard Customer';require __DIR__.'/../includes/header.php';
+require_once __DIR__ . '/../includes/authorization.php';
+require_role('customer');
+require_once __DIR__ . '/../includes/Repositories/OrderRepository.php';
+require_once __DIR__ . '/../includes/Repositories/ProductRepository.php';
+
+$uid = (int) $_SESSION['user_id'];
+$orders = (new OrderRepository())->byBuyer($uid);
+$products = (new ProductRepository())->featured(4);
+$open = count(array_filter($orders, fn($o) => in_array($o['status'], ['requested', 'accepted'], true)));
+$completed = count(array_filter($orders, fn($o) => $o['status'] === 'completed'));
+
+$pageTitle = 'Dashboard Customer';
+require __DIR__ . '/../includes/header.php';
 ?>
-<section class="section-padding page-section"><div class="container"><div class="page-toolbar"><?=back_link('home','Kembali ke beranda')?></div><div class="dashboard-top"><div><span class="eyebrow">Customer</span><h1>Dashboard <em>kamu.</em></h1><p class="text-muted">Mulai dari katalog, lanjutkan ke keranjang, lalu pantau pesanan di sini.</p></div><a class="btn btn-primary" href="<?=e(page_url('marketplace'))?>"><i class="bi bi-search me-2"></i>Cari barang</a></div><div class="dashboard-grid"><a href="<?=e(page_url('orders'))?>" class="dashboard-action glass-card"><i class="bi bi-bag-check"></i><div><strong><?=count($orders)?> pesanan</strong><small><?=$open?> masih berjalan · <?=$completed?> selesai</small></div><i class="bi bi-arrow-right arrow"></i></a><a href="<?=e(page_url('cart'))?>" class="dashboard-action glass-card"><i class="bi bi-cart3"></i><div><strong>Keranjang</strong><small>Periksa item sebelum checkout</small></div><i class="bi bi-arrow-right arrow"></i></a><a href="<?=e(page_url('profile'))?>" class="dashboard-action glass-card"><i class="bi bi-person"></i><div><strong>Profil saya</strong><small>Kelola data akun</small></div><i class="bi bi-arrow-right arrow"></i></a></div><div class="row g-4 mt-1"><div class="col-md-4"><div class="metric-card"><span>Total pesanan</span><strong><?=count($orders)?></strong></div></div><div class="col-md-4"><div class="metric-card"><span>Selesai</span><strong><?=$completed?></strong></div></div><div class="col-md-4"><div class="metric-card"><span>Rekomendasi</span><strong><?=count($products)?></strong></div></div></div><div class="glass-card p-4 mt-4"><div class="d-flex justify-content-between align-items-center mb-3"><div><span class="eyebrow">Rekomendasi</span><h2 class="h3 mt-1">Barang terbaru.</h2></div><a class="text-link" href="<?=e(page_url('marketplace'))?>">Lihat katalog</a></div><div class="row g-3"><?php foreach($products as $p):?><div class="col-md-6 col-lg-3"><a class="mini-product" href="<?=e(page_url('product-detail',['id'=>$p['id']]))?>"><div class="mini-product-visual"><?php if($p['image_path']):?><img src="<?=e(APP_URL.'/'.$p['image_path'])?>" alt="<?=e($p['name'])?>"><?php else:?><i class="bi bi-box-seam"></i><?php endif;?></div><small><?=e($p['category'])?></small><strong><?=e($p['name'])?></strong><span><?=format_price((int)$p['price'])?></span></a></div><?php endforeach;?></div></div></div></section><?php require __DIR__.'/../includes/footer.php'; ?>
+<section class="section-padding page-section">
+    <div class="container">
+        <div class="page-toolbar"><?= back_link('home', 'Kembali ke beranda') ?></div>
+        <div class="dashboard-top">
+            <div>
+                <span class="eyebrow">Customer</span>
+                <h1>Dashboard <em>kamu.</em></h1>
+                <p class="text-muted">Mulai dari katalog, lanjutkan ke keranjang, lalu pantau pesanan dan percakapanmu di sini.</p>
+            </div>
+            <a class="btn btn-primary" href="<?= e(page_url('marketplace')) ?>"><i class="bi bi-search me-2"></i>Cari barang</a>
+        </div>
+
+        <div class="dashboard-grid">
+            <a href="<?= e(page_url('orders')) ?>" class="dashboard-action glass-card"><i class="bi bi-bag-check"></i><div><strong><?= count($orders) ?> pesanan</strong><small><?= $open ?> masih berjalan · <?= $completed ?> selesai</small></div><i class="bi bi-arrow-right arrow"></i></a>
+            <a href="<?= e(page_url('cart')) ?>" class="dashboard-action glass-card"><i class="bi bi-cart3"></i><div><strong>Keranjang</strong><small>Periksa item sebelum checkout</small></div><i class="bi bi-arrow-right arrow"></i></a>
+            <a href="<?= e(page_url('chat')) ?>" class="dashboard-action glass-card"><i class="bi bi-chat-dots"></i><div><strong>Chat & pengaduan</strong><small>Chat seller atau hubungi admin</small></div><i class="bi bi-arrow-right arrow"></i></a>
+            <a href="<?= e(page_url('profile')) ?>" class="dashboard-action glass-card"><i class="bi bi-person"></i><div><strong>Profil saya</strong><small>Kelola data akun</small></div><i class="bi bi-arrow-right arrow"></i></a>
+        </div>
+
+        <div class="row g-4 mt-1">
+            <div class="col-md-4"><div class="metric-card"><span>Total pesanan</span><strong><?= count($orders) ?></strong></div></div>
+            <div class="col-md-4"><div class="metric-card"><span>Selesai</span><strong><?= $completed ?></strong></div></div>
+            <div class="col-md-4"><div class="metric-card"><span>Rekomendasi</span><strong><?= count($products) ?></strong></div></div>
+        </div>
+
+        <div class="glass-card p-4 mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div><span class="eyebrow">Rekomendasi</span><h2 class="h3 mt-1">Barang terbaru.</h2></div>
+                <a class="text-link" href="<?= e(page_url('marketplace')) ?>">Lihat katalog</a>
+            </div>
+            <div class="row g-3">
+                <?php foreach ($products as $p): ?>
+                    <div class="col-md-6 col-lg-3">
+                        <a class="mini-product" href="<?= e(page_url('product-detail', ['id' => $p['id']])) ?>">
+                            <div class="mini-product-visual">
+                                <?php if ($p['image_path']): ?><img src="<?= e(APP_URL . '/' . ltrim((string) $p['image_path'], '/')) ?>" alt="<?= e((string) $p['name']) ?>"><?php else: ?><i class="bi bi-box-seam"></i><?php endif; ?>
+                            </div>
+                            <small><?= e((string) $p['category']) ?></small>
+                            <strong><?= e((string) $p['name']) ?></strong>
+                            <span><?= format_price((int) $p['price']) ?></span>
+                        </a>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</section>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
