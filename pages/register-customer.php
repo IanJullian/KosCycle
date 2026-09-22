@@ -23,7 +23,7 @@ if (is_post()) {
     if (!preg_match('/^(08|62)[0-9]{8,13}$/', $phone)) $errors[] = 'Nomor WhatsApp belum valid.';
     if (strlen($password) < 8 || !preg_match('/[A-Z]/', $password) || !preg_match('/[0-9]/', $password)) $errors[] = 'Password minimal 8 karakter dan harus memiliki huruf besar serta angka.';
     if ($password !== $confirmation) $errors[] = 'Konfirmasi password tidak sama.';
-    if (!recaptcha_valid($_POST['g-recaptcha-response'] ?? null)) $errors[] = 'Verifikasi reCAPTCHA belum berhasil.';
+    if (!recaptcha_valid($_POST['g-recaptcha-response'] ?? null, 'register_customer')) $errors[] = 'Verifikasi reCAPTCHA belum berhasil.';
 
     if (!$errors) {
         $check = db()->prepare('SELECT id FROM users WHERE username=? OR email=? LIMIT 1');
@@ -80,8 +80,9 @@ require __DIR__ . '/../includes/header.php';
                 <div class="alert alert-danger small"><?= implode('<br>', array_map('e', $errors)) ?></div>
             <?php endif; ?>
 
-            <form method="post" novalidate>
+            <form method="post" novalidate data-recaptcha-action="register_customer">
                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="g-recaptcha-response" value="">
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Nama lengkap</label>
@@ -111,11 +112,7 @@ require __DIR__ . '/../includes/header.php';
 
                 <div class="form-hint mt-3"><i class="bi bi-info-circle me-1"></i> Gunakan huruf besar dan angka dalam password.</div>
 
-                <?php if (recaptcha_configured()): ?>
-                    <div class="g-recaptcha mt-3" data-sitekey="<?= e(RECAPTCHA_SITE_KEY) ?>"></div>
-                <?php else: ?>
-                    <div class="recaptcha-placeholder mt-3"><i class="bi bi-shield-check"></i> reCAPTCHA dalam mode local.</div>
-                <?php endif; ?>
+                <div class="recaptcha-placeholder mt-3"><i class="bi bi-shield-check"></i> Perlindungan reCAPTCHA aktif.</div>
 
                 <button class="btn btn-primary w-100 mt-4" type="submit">Buat akun customer <i class="bi bi-arrow-right ms-2"></i></button>
             </form>
@@ -126,5 +123,5 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </section>
 
-<?php if (recaptcha_configured()): ?><script src="https://www.google.com/recaptcha/api.js" async defer></script><?php endif; ?>
+<?php if (recaptcha_configured()): ?><script src="https://www.google.com/recaptcha/api.js?render=<?= e(RECAPTCHA_SITE_KEY) ?>" async defer></script><script>document.querySelector('form[data-recaptcha-action="register_customer"]').addEventListener('submit', function (event) { var form = this; if (form.dataset.recaptchaReady === '1') return; event.preventDefault(); grecaptcha.ready(function () { grecaptcha.execute('<?= e(RECAPTCHA_SITE_KEY) ?>', { action: 'register_customer' }).then(function (token) { form.querySelector('[name="g-recaptcha-response"]').value = token; form.dataset.recaptchaReady = '1'; form.submit(); }); }); });</script><?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>
