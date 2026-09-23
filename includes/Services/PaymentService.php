@@ -40,44 +40,34 @@ class PaymentService
             throw new RuntimeException('Pesanan tidak ditemukan.');
         }
 
-        if ($order['status'] !== 'accepted') {
-            throw new RuntimeException(
-                'Pembayaran tersedia setelah seller menerima pesanan.'
-            );
+        // Alur baru: pembayaran dilakukan segera setelah checkout, sebelum
+        // seller menerima/memproses pesanan.
+        if (!in_array((string) $order['status'], ['requested', 'accepted'], true)) {
+            throw new RuntimeException('Pesanan ini sudah tidak dapat dibayar.');
         }
 
         $grossAmount = (int) $order['total'];
-
         if ($grossAmount <= 0) {
             throw new RuntimeException('Total pembayaran tidak valid.');
         }
 
         $paymentStmt = $pdo->prepare(
-            "SELECT *
-             FROM payments
-             WHERE order_id = ?
-             LIMIT 1"
+            "SELECT * FROM payments WHERE order_id = ? LIMIT 1"
         );
-
         $paymentStmt->execute([$orderId]);
-        $payment = $paymentStmt->fetch();
+        $payment = $paymentStmt->fetch() ?: null;
 
-        if (!$payment) {
-            $payment = null;
-        } elseif ($payment['payment_status'] === 'paid') {
-            throw new RuntimeException(
-                'Pesanan ini sudah dibayar.'
-            );
-        } elseif (
-            $payment['payment_status'] === 'pending'
-            && !empty($payment['snap_token'])
-        ) {
+        if ($payment && $payment['payment_status'] === 'paid') {
+            throw new RuntimeException('Pesanan ini sudah dibayar.');
+        }
+
+        if ($payment
+            && $payment['payment_status'] === 'pending'
+            && !empty($payment['snap_token'])) {
             return $payment;
         }
 
-        $midtransOrderId =
-            'KOSCYCLE-' . $orderId . '-' . date('YmdHis');
-
+        $midtransOrderId = 'KOSCYCLE-' . $orderId . '-' . date('YmdHis');
         $params = [
             'transaction_details' => [
                 'order_id' => $midtransOrderId,
@@ -93,36 +83,27 @@ class PaymentService
         try {
             $snapToken = \Midtrans\Snap::getSnapToken($params);
         } catch (Throwable $e) {
-            throw new RuntimeException(
-                'Gagal membuat transaksi Midtrans. Periksa Server Key dan koneksi hosting.'
-            );
+            throw new RuntimeException('Gagal membuat transaksi Midtrans. Periksa Server Key dan koneksi hosting.');
         }
 
         if ($payment) {
             $update = $pdo->prepare(
                 "UPDATE payments
-                 SET
-                    midtrans_order_id = ?,
-                    transaction_id = NULL,
-                    snap_token = ?,
-                    payment_status = 'unpaid',
-                    payment_type = NULL,
-                    fraud_status = NULL,
-                    transaction_time = NULL,
-                    settlement_time = NULL,
-                    paid_at = NULL,
-                    raw_notification = NULL,
-                    gross_amount = ?,
-                    updated_at = CURRENT_TIMESTAMP
+                 SET midtrans_order_id = ?,
+                     transaction_id = NULL,
+                     snap_token = ?,
+                     payment_status = 'unpaid',
+                     payment_type = NULL,
+                     fraud_status = NULL,
+                     transaction_time = NULL,
+                     settlement_time = NULL,
+                     paid_at = NULL,
+                     raw_notification = NULL,
+                     gross_amount = ?,
+                     updated_at = CURRENT_TIMESTAMP
                  WHERE order_id = ?"
             );
-
-            $update->execute([
-                $midtransOrderId,
-                $snapToken,
-                $grossAmount,
-                $orderId,
-            ]);
+            $update->execute([$midtransOrderId, $snapToken, $grossAmount, $orderId]);
         } else {
             $insert = $pdo->prepare(
                 "INSERT INTO payments (
@@ -131,33 +112,17 @@ class PaymentService
                     snap_token,
                     payment_status,
                     gross_amount
-                 )
-                 VALUES (?, ?, ?, 'unpaid', ?)"
+                 ) VALUES (?, ?, ?, 'unpaid', ?)"
             );
-
-            $insert->execute([
-                $orderId,
-                $midtransOrderId,
-                $snapToken,
-                $grossAmount,
-            ]);
+            $insert->execute([$orderId, $midtransOrderId, $snapToken, $grossAmount]);
         }
 
-        $resultStmt = $pdo->prepare(
-            "SELECT *
-             FROM payments
-             WHERE order_id = ?
-             LIMIT 1"
-        );
-
+        $resultStmt = $pdo->prepare("SELECT * FROM payments WHERE order_id = ? LIMIT 1");
         $resultStmt->execute([$orderId]);
-
         $result = $resultStmt->fetch();
 
         if (!$result) {
-            throw new RuntimeException(
-                'Data pembayaran gagal disimpan.'
-            );
+            throw new RuntimeException('Data pembayaran gagal disimpan.');
         }
 
         return $result;

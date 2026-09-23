@@ -52,9 +52,14 @@ if (is_post()) {
             password_hash($password, PASSWORD_DEFAULT),
             'seller',
         ]);
+
+        // Seller langsung login setelah registrasi berhasil.
+        $sellerId = (int) db()->lastInsertId();
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $sellerId;
         clear_old();
-        flash('success', 'Akun seller berhasil dibuat. Silakan masuk.');
-        redirect(page_url('login'));
+        flash('success', 'Akun seller berhasil dibuat. Selamat datang di dashboard tokomu!');
+        redirect(page_url('seller-dashboard'));
     }
 
     set_old($data);
@@ -63,7 +68,8 @@ if (is_post()) {
 $pageTitle = 'Daftar Seller';
 require __DIR__ . '/../includes/header.php';
 ?>
-<section class="auth-section">
+<link rel="stylesheet" href="<?= e(APP_URL) ?>/assets/css/ux-v3.css">
+<section class="auth-section auth-register-page">
     <div class="auth-shell">
         <div class="auth-intro">
             <span class="eyebrow">Seller</span>
@@ -79,62 +85,28 @@ require __DIR__ . '/../includes/header.php';
         <div class="auth-panel glass-card">
             <div class="auth-heading">
                 <span class="auth-icon"><i class="bi bi-shop"></i></span>
-                <div>
-                    <h2>Buat akun seller</h2>
-                    <p>Daftarkan toko kecilmu dan mulai jualan.</p>
-                </div>
+                <div><h2>Buat akun seller</h2><p>Daftarkan toko kecilmu dan mulai jualan.</p></div>
             </div>
 
-            <?php if ($errors): ?>
-                <div class="alert alert-danger small"><?= implode('<br>', array_map('e', $errors)) ?></div>
-            <?php endif; ?>
+            <?php if ($errors): ?><div class="alert alert-danger small"><?= implode('<br>', array_map('e', $errors)) ?></div><?php endif; ?>
 
             <form method="post" novalidate data-recaptcha-action="register_seller">
                 <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
                 <input type="hidden" name="g-recaptcha-response" value="">
                 <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Nama lengkap</label>
-                        <input class="form-control" name="full_name" value="<?= old('full_name') ?>" placeholder="Nama pemilik toko" autocomplete="name">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Nama toko / brand</label>
-                        <input class="form-control" name="shop_name" value="<?= old('shop_name') ?>" placeholder="contoh: Antik Shop" autocomplete="organization">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Kota toko</label>
-                        <input class="form-control" name="shop_city" value="<?= old('shop_city') ?>" placeholder="contoh: Bandung" autocomplete="address-level2">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Username</label>
-                        <input class="form-control" name="username" value="<?= old('username') ?>" placeholder="contoh: toko_kos" autocomplete="username">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Deskripsi toko</label>
-                        <textarea class="form-control" name="shop_description" rows="3" placeholder="Ceritakan singkat tentang produk yang kamu jual, gaya toko, atau layanan yang tersedia."><?= old('shop_description') ?></textarea>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Nomor WhatsApp</label>
-                        <input class="form-control" name="whatsapp" value="<?= old('whatsapp') ?>" placeholder="08xxxxxxxxxx" autocomplete="tel">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Email aktif</label>
-                        <input class="form-control" type="email" name="email" value="<?= old('email') ?>" placeholder="toko@email.com" autocomplete="email">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Password</label>
-                        <input class="form-control" type="password" name="password" placeholder="Min. 8 karakter" autocomplete="new-password">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Konfirmasi password</label>
-                        <input class="form-control" type="password" name="password_confirmation" placeholder="Ulangi password" autocomplete="new-password">
-                    </div>
+                    <div class="col-12"><label class="form-label">Nama lengkap</label><input class="form-control" name="full_name" value="<?= old('full_name') ?>" placeholder="Nama pemilik toko" autocomplete="name"></div>
+                    <div class="col-12"><label class="form-label">Nama toko / brand</label><input class="form-control" name="shop_name" value="<?= old('shop_name') ?>" placeholder="contoh: Antik Shop" autocomplete="organization"></div>
+                    <div class="col-md-6"><label class="form-label">Kota toko</label><input class="form-control" name="shop_city" value="<?= old('shop_city') ?>" placeholder="contoh: Bandung" autocomplete="address-level2"></div>
+                    <div class="col-md-6"><label class="form-label">Username</label><input class="form-control" name="username" value="<?= old('username') ?>" placeholder="contoh: toko_kos" autocomplete="username"></div>
+                    <div class="col-12"><label class="form-label">Deskripsi toko</label><textarea class="form-control" name="shop_description" rows="3" placeholder="Ceritakan singkat tentang produk yang kamu jual, gaya toko, atau layanan yang tersedia."><?= old('shop_description') ?></textarea></div>
+                    <div class="col-md-6"><label class="form-label">Nomor WhatsApp</label><input class="form-control" name="whatsapp" value="<?= old('whatsapp') ?>" placeholder="08xxxxxxxxxx" autocomplete="tel"></div>
+                    <div class="col-md-6"><label class="form-label">Email aktif</label><input class="form-control" type="email" name="email" value="<?= old('email') ?>" placeholder="toko@email.com" autocomplete="email"></div>
+                    <div class="col-md-6"><label class="form-label">Password</label><input class="form-control" type="password" name="password" placeholder="Min. 8 karakter" autocomplete="new-password"></div>
+                    <div class="col-md-6"><label class="form-label">Konfirmasi password</label><input class="form-control" type="password" name="password_confirmation" placeholder="Ulangi password" autocomplete="new-password"></div>
                 </div>
 
                 <div class="form-hint mt-3"><i class="bi bi-info-circle me-1"></i> Gunakan huruf besar dan angka dalam password.</div>
-
-                <div class="recaptcha-placeholder mt-3"><i class="bi bi-shield-check"></i> Perlindungan reCAPTCHA aktif.</div>
-
+                <div class="recaptcha-placeholder mt-3"><i class="bi bi-shield-check"></i> Perlindungan reCAPTCHA v3 aktif.</div>
                 <button class="btn btn-primary w-100 mt-4" type="submit">Buat akun seller <i class="bi bi-arrow-right ms-2"></i></button>
             </form>
 
@@ -144,5 +116,25 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </section>
 
-<?php if (recaptcha_configured()): ?><script src="https://www.google.com/recaptcha/api.js?render=<?= e(RECAPTCHA_SITE_KEY) ?>" async defer></script><script>document.querySelector('form[data-recaptcha-action="register_seller"]').addEventListener('submit', function (event) { var form = this; if (form.dataset.recaptchaReady === '1') return; event.preventDefault(); grecaptcha.ready(function () { grecaptcha.execute('<?= e(RECAPTCHA_SITE_KEY) ?>', { action: 'register_seller' }).then(function (token) { form.querySelector('[name="g-recaptcha-response"]').value = token; form.dataset.recaptchaReady = '1'; form.submit(); }); }); });</script><?php endif; ?>
+<?php if (recaptcha_configured()): ?>
+<script src="https://www.google.com/recaptcha/api.js?render=<?= e(RECAPTCHA_SITE_KEY) ?>" async defer></script>
+<script>
+(() => {
+    const form = document.querySelector('form[data-recaptcha-action="register_seller"]');
+    if (!form) return;
+    form.addEventListener('submit', function (event) {
+        if (form.dataset.recaptchaReady === '1') return;
+        event.preventDefault();
+        if (typeof grecaptcha === 'undefined') return;
+        grecaptcha.ready(function () {
+            grecaptcha.execute('<?= e(RECAPTCHA_SITE_KEY) ?>', { action: 'register_seller' }).then(function (token) {
+                form.querySelector('[name="g-recaptcha-response"]').value = token;
+                form.dataset.recaptchaReady = '1';
+                form.submit();
+            });
+        });
+    });
+})();
+</script>
+<?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

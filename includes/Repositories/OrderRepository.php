@@ -130,15 +130,8 @@ class OrderRepository
             "SELECT
                 o.*,
                 u.full_name buyer_name,
-                (SELECT COUNT(*)
-                 FROM order_items oi
-                 WHERE oi.order_id=o.id) item_count,
-                COALESCE(
-                    (SELECT SUM(oi2.line_total)
-                     FROM order_items oi2
-                     WHERE oi2.order_id=o.id),
-                    0
-                ) total
+                (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id=o.id) item_count,
+                COALESCE((SELECT SUM(oi2.line_total) FROM order_items oi2 WHERE oi2.order_id=o.id),0) total
              FROM orders o
              JOIN users u ON u.id=o.buyer_id
              ORDER BY o.id DESC"
@@ -150,35 +143,22 @@ class OrderRepository
         $this->changeStatus($orderId,null,$status);
     }
 
-    public function setStatusSeller(
-        int $orderId,
-        int $sellerId,
-        string $status
-    ): void {
+    public function setStatusSeller(int $orderId, int $sellerId, string $status): void
+    {
         $this->changeStatus($orderId,$sellerId,$status);
     }
 
-    private function changeStatus(
-        int $orderId,
-        ?int $sellerId,
-        string $status
-    ): void {
+    private function changeStatus(int $orderId, ?int $sellerId, string $status): void
+    {
         $pdo = db();
         $pdo->beginTransaction();
         try {
-            $sql='SELECT id,status,buyer_id
-                  FROM orders
-                  WHERE id=?
-                  LIMIT 1
-                  FOR UPDATE';
-            $st=$pdo->prepare($sql);
+            $st=$pdo->prepare('SELECT id,status,buyer_id FROM orders WHERE id=? LIMIT 1 FOR UPDATE');
             $st->execute([$orderId]);
             $order=$st->fetch();
 
             if(!$order) {
-                throw new RuntimeException(
-                    'Pesanan tidak ditemukan.'
-                );
+                throw new RuntimeException('Pesanan tidak ditemukan.');
             }
 
             $transitions=[
@@ -188,140 +168,68 @@ class OrderRepository
                 'cancelled'=>[]
             ];
 
-            if(
-                !isset($transitions[$order['status']])
-                || !in_array(
-                    $status,
-                    $transitions[$order['status']],
-                    true
-                )
-            ) {
-                throw new RuntimeException(
-                    'Transisi status pesanan tidak valid.'
-                );
+            if(!isset($transitions[$order['status']]) || !in_array($status,$transitions[$order['status']],true)) {
+                throw new RuntimeException('Transisi status pesanan tidak valid.');
             }
 
             if($sellerId!==null){
-                $check=$pdo->prepare(
-                    'SELECT 1
-                     FROM order_items
-                     WHERE order_id=?
-                     AND seller_id=?
-                     LIMIT 1'
-                );
-                $check->execute([
-                    $orderId,
-                    $sellerId
-                ]);
+                $check=$pdo->prepare('SELECT 1 FROM order_items WHERE order_id=? AND seller_id=? LIMIT 1');
+                $check->execute([$orderId,$sellerId]);
 
-                $sellerCount=$pdo->prepare(
-                    'SELECT COUNT(DISTINCT seller_id)
-                     FROM order_items
-                     WHERE order_id=?'
-                );
+                $sellerCount=$pdo->prepare('SELECT COUNT(DISTINCT seller_id) FROM order_items WHERE order_id=?');
                 $sellerCount->execute([$orderId]);
 
-                if(
-                    !$check->fetchColumn()
-                    || (int)$sellerCount->fetchColumn()!==1
-                ) {
-                    throw new RuntimeException(
-                        'Pesanan bukan pesanan tunggal seller ini.'
-                    );
+                if(!$check->fetchColumn() || (int)$sellerCount->fetchColumn()!==1) {
+                    throw new RuntimeException('Pesanan bukan pesanan tunggal seller ini.');
+                }
+
+                // Buyer harus membayar lebih dulu. Seller baru boleh menerima
+                // atau menyelesaikan order ketika webhook Midtrans menandainya paid.
+                if (in_array($status, ['accepted', 'completed'], true)) {
+                    $paymentCheck = $pdo->prepare('SELECT payment_status FROM payments WHERE order_id=? LIMIT 1 FOR UPDATE');
+                    $paymentCheck->execute([$orderId]);
+                    $paymentStatus = (string) ($paymentCheck->fetchColumn() ?: 'unpaid');
+                    if ($paymentStatus !== 'paid') {
+                        throw new RuntimeException('Pesanan belum dibayar. Tunggu pembayaran customer terkonfirmasi terlebih dahulu.');
+                    }
                 }
             }
 
-            if(
-                $status==='cancelled'
-                && $order['status']!=='cancelled'
-            ){
+            if($status==='cancelled' && $order['status']!=='cancelled'){
                 $items=$sellerId===null
-                    ?$pdo->prepare(
-                        'SELECT product_id,quantity
-                         FROM order_items
-                         WHERE order_id=?'
-                    )
-                    :$pdo->prepare(
-                        'SELECT product_id,quantity
-                         FROM order_items
-                         WHERE order_id=?
-                         AND seller_id=?'
-                    );
+                    ?$pdo->prepare('SELECT product_id,quantity FROM order_items WHERE order_id=?')
+                    :$pdo->prepare('SELECT product_id,quantity FROM order_items WHERE order_id=? AND seller_id=?');
 
-                $sellerId===null
-                    ?$items->execute([$orderId])
-                    :$items->execute([
-                        $orderId,
-                        $sellerId
-                    ]);
-
+                $sellerId===null ? $items->execute([$orderId]) : $items->execute([$orderId,$sellerId]);
                 $itemsRows=$items->fetchAll();
 
                 foreach($itemsRows as $item){
                     $up=$pdo->prepare(
-                        'INSERT INTO product_inventory(
-                            product_id,
-                            quantity
-                         )
+                        'INSERT INTO product_inventory(product_id,quantity)
                          VALUES(?,?)
-                         ON DUPLICATE KEY UPDATE
-                            quantity=quantity+VALUES(quantity),
-                            updated_at=CURRENT_TIMESTAMP'
+                         ON DUPLICATE KEY UPDATE quantity=quantity+VALUES(quantity),updated_at=CURRENT_TIMESTAMP'
                     );
-
-                    $up->execute([
-                        (int)$item['product_id'],
-                        (int)$item['quantity']
-                    ]);
+                    $up->execute([(int)$item['product_id'],(int)$item['quantity']]);
 
                     $pdo->prepare(
                         "UPDATE products
-                         SET status=IF(
-                            status='sold',
-                            'available',
-                            status
-                         )
-                         WHERE id=?
-                         AND status<>'archived'"
-                    )->execute([
-                        (int)$item['product_id']
-                    ]);
+                         SET status=IF(status='sold','available',status)
+                         WHERE id=? AND status<>'archived'"
+                    )->execute([(int)$item['product_id']]);
                 }
             }
 
-            $pdo->prepare(
-                'UPDATE orders
-                 SET status=?
-                 WHERE id=?'
-            )->execute([
-                $status,
-                $orderId
-            ]);
+            $pdo->prepare('UPDATE orders SET status=? WHERE id=?')->execute([$status,$orderId]);
 
-            $changedBy =
-                $sellerId
-                ?? (int)($_SESSION['user_id']??0);
-
+            $changedBy=$sellerId ?? (int)($_SESSION['user_id']??0);
             $pdo->prepare(
-                'INSERT INTO order_status_history(
-                    order_id,
-                    status,
-                    changed_by
-                 )
-                 VALUES(?,?,?)'
-            )->execute([
-                $orderId,
-                $status,
-                $changedBy
-            ]);
+                'INSERT INTO order_status_history(order_id,status,changed_by) VALUES(?,?,?)'
+            )->execute([$orderId,$status,$changedBy]);
 
             $pdo->commit();
         }catch(Throwable $e){
-            $pdo = db();
-            if($pdo->inTransaction()){
-                $pdo->rollBack();
-            }
-            throw$e;
+            if($pdo->inTransaction()){$pdo->rollBack();}
+            throw $e;
         }
     }
 
@@ -337,8 +245,7 @@ class OrderRepository
                 o.created_at
              FROM order_items oi
              JOIN orders o ON o.id=oi.order_id
-             WHERE oi.seller_id=?
-               AND o.status='completed'
+             WHERE oi.seller_id=? AND o.status='completed'
              ORDER BY o.id DESC,oi.id"
         );
         $st->execute([$sellerId]);

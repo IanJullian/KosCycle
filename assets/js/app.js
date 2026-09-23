@@ -4,21 +4,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const hidePreloader = () => {
     if (!preloader) return;
     preloader.classList.add('is-hidden');
-    window.setTimeout(() => preloader.remove(), 650);
+    document.body.classList.remove('page-leaving');
+    window.setTimeout(() => {
+      if (preloader?.classList.contains('is-hidden')) preloader.remove();
+    }, 650);
   };
 
-  // DOMContentLoaded is enough when the script is loaded normally; the load
-  // and timeout fallbacks prevent the screen from being stuck behind the
-  // preloader when an external resource is slow or unavailable.
   hidePreloader();
   window.addEventListener('load', hidePreloader, { once: true });
   window.setTimeout(hidePreloader, 1800);
 
   document.querySelectorAll('a[href]').forEach((link) => {
     link.addEventListener('click', (event) => {
-      /* Never intercept Bootstrap's mobile nav links/dropdowns. */
       if (link.closest('.navbar-collapse')) return;
       if (link.matches('[data-bs-toggle="dropdown"]')) return;
+      if (link.dataset.noPreloader === '1') return;
 
       let destination;
       try {
@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) {
         return;
       }
+
+      // Chat/pengaduan tidak memakai full-screen preloader agar tombol Hubungi
+      // admin tidak terlihat "loading terus" saat hosting lambat.
+      if (destination.searchParams.get('page') === 'chat') return;
 
       const isPageNavigation = destination.origin === window.location.origin
         && destination.pathname === window.location.pathname
@@ -35,7 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         document.body.classList.add('page-leaving');
         if (preloader) preloader.classList.remove('is-hidden');
-        window.setTimeout(() => { window.location.href = link.href; }, 160);
+
+        // Safety fallback: jangan biarkan overlay menutup halaman selamanya.
+        window.setTimeout(() => document.body.classList.remove('page-leaving'), 2500);
+        window.setTimeout(() => { window.location.href = link.href; }, 120);
       }
     });
   });
@@ -62,8 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Role-aware navigation state: setiap halaman menunjukkan tab aktif dan
-  // admin otomatis menyorot menu "Kelola" ketika membuka submenu admin.
   const navLinks = document.querySelectorAll('.navbar-collapse a.nav-link, .navbar-collapse a.dropdown-item');
   const pageParam = new URLSearchParams(window.location.search).get('page') || 'home';
   let detectedRole = 'guest';
@@ -83,15 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetPage === 'admin-dashboard') detectedRole = 'admin';
       if (targetPage === 'seller-dashboard' && detectedRole !== 'admin') detectedRole = 'seller';
       if (targetPage === 'customer-dashboard' && detectedRole === 'guest') detectedRole = 'customer';
-    } catch (_) {
-      // Aba navigasi yang URL-nya tidak valid tidak boleh mengganggu UI lain.
-    }
+    } catch (_) {}
   });
 
   document.body.classList.add('nav-role-' + detectedRole);
 
-  // Global nav styling is injected here so it works on every role/page
-  // without duplicating CSS links in the header.
   const navStyle = document.createElement('style');
   navStyle.textContent = `
     .navbar .nav-link, .navbar .dropdown-item {
@@ -107,9 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
     .navbar .dropdown-item.nav-page-active {
       background: rgba(168,216,200,.22); color: var(--teal); font-weight: 700;
     }
-    .nav-role-admin .nav-parent-active > .nav-link { box-shadow: 0 6px 18px rgba(40,125,108,.08); }
-    .nav-role-seller .nav-page-active { text-shadow: 0 0 16px rgba(239,128,95,.12); }
-    .nav-role-customer .nav-page-active { text-shadow: 0 0 16px rgba(40,125,108,.12); }
     @media (max-width: 991px) {
       .navbar .nav-link.nav-page-active::after { margin-top: 3px; }
       .navbar .nav-link.nav-page-active { background: rgba(168,216,200,.18); }

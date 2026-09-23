@@ -4,33 +4,61 @@ require_guest();
 
 $errors = [];
 if (is_post()) {
-    if (!verify_csrf()) $errors[] = 'Sesi formulir tidak valid. Silakan coba lagi.';
-    $identity = trim($_POST['identity'] ?? '');
-    $password = $_POST['password'] ?? '';
-    if ($identity === '') $errors[] = 'Username atau email wajib diisi.';
-    if ($password === '') $errors[] = 'Password wajib diisi.';
-    if (!recaptcha_valid($_POST['g-recaptcha-response'] ?? null, 'login')) $errors[] = 'Verifikasi reCAPTCHA belum berhasil.';
+    if (!verify_csrf()) {
+        $errors[] = 'Sesi formulir tidak valid. Silakan coba lagi.';
+    }
 
+    $identity = trim((string) ($_POST['identity'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
+
+    if ($identity === '') {
+        $errors[] = 'Username atau email wajib diisi.';
+    }
+    if ($password === '') {
+        $errors[] = 'Password wajib diisi.';
+    }
+
+    $user = null;
+    $credentialsValid = false;
+
+    // Validasi kredensial lebih dulu agar user yang salah akun/password tidak
+    // menerima pesan yang menyesatkan seolah-olah masalahnya ada di CAPTCHA.
     if (!$errors) {
         $stmt = db()->prepare('SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1');
         $stmt->execute([$identity, $identity]);
-        $user = $stmt->fetch();
-        if ($user && password_verify($password, $user['password_hash']) && $user['status'] === 'active') {
-            session_regenerate_id(true);
-            $_SESSION['user_id'] = (int) $user['id'];
-            clear_old();
-            flash('success', 'Selamat datang kembali, ' . $user['full_name'] . '!');
-            redirect(dashboard_url($user['role']));
+        $user = $stmt->fetch() ?: null;
+
+        $credentialsValid = $user
+            && password_verify($password, (string) $user['password_hash'])
+            && ($user['status'] ?? '') === 'active';
+
+        if (!$credentialsValid) {
+            $errors[] = 'Akun belum terdaftar, password salah, atau akun sedang tidak aktif.';
         }
-        $errors[] = 'Username/email atau password belum sesuai.';
     }
+
+    // reCAPTCHA tetap divalidasi untuk login yang kredensialnya benar, tetapi
+    // tidak menimpa pesan kesalahan akun/password.
+    if ($credentialsValid && !recaptcha_valid($_POST['g-recaptcha-response'] ?? null, 'login')) {
+        $errors[] = 'Verifikasi keamanan reCAPTCHA belum berhasil. Silakan coba lagi.';
+    }
+
+    if (!$errors && $user) {
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int) $user['id'];
+        clear_old();
+        flash('success', 'Selamat datang kembali, ' . $user['full_name'] . '!');
+        redirect(dashboard_url((string) $user['role']));
+    }
+
     set_old(['identity' => $identity]);
 }
 
 $pageTitle = 'Masuk';
 require __DIR__ . '/../includes/header.php';
 ?>
-<section class="auth-section">
+<link rel="stylesheet" href="<?= e(APP_URL) ?>/assets/css/ux-v3.css">
+<section class="auth-section auth-login-page">
     <div class="auth-shell">
         <div class="auth-intro">
             <span class="eyebrow">Selamat datang lagi</span>
@@ -59,12 +87,41 @@ require __DIR__ . '/../includes/header.php';
                     </div>
                 </div>
                 <div class="d-flex justify-content-end mb-4"><a href="<?= e(page_url('forgot-password')) ?>" class="small text-link">Lupa password?</a></div>
-                <div class="recaptcha-placeholder mb-3"><i class="bi bi-shield-check"></i> Perlindungan reCAPTCHA aktif.</div>
+                <div class="recaptcha-placeholder mb-3"><i class="bi bi-shield-check"></i> Perlindungan reCAPTCHA v3 aktif.</div>
                 <button class="btn btn-primary w-100" type="submit">Masuk sekarang <i class="bi bi-arrow-right ms-2"></i></button>
             </form>
             <p class="auth-switch">Belum punya akun? <a href="<?= e(page_url('register')) ?>">Daftar sekarang</a></p>
         </div>
     </div>
 </section>
-<?php if (recaptcha_configured()): ?><script src="https://www.google.com/recaptcha/api.js?render=<?= e(RECAPTCHA_SITE_KEY) ?>" async defer></script><script>document.querySelector('form[data-recaptcha-action="login"]').addEventListener('submit', function (event) { var form = this; if (form.dataset.recaptchaReady === '1') return; event.preventDefault(); grecaptcha.ready(function () { grecaptcha.execute('<?= e(RECAPTCHA_SITE_KEY) ?>', { action: 'login' }).then(function (token) { form.querySelector('[name="g-recaptcha-response"]').value = token; form.dataset.recaptchaReady = '1'; form.submit(); }); }); });</script><?php endif; ?>
+<?php if (recaptcha_configured()): ?>
+<script src="https://www.google.com/recaptcha/api.js?render=<?= e(RECAPTCHA_SITE_KEY) ?>" async defer></script>
+<script>
+(() => {
+    const form = document.querySelector('form[data-recaptcha-action="login"]');
+    if (!form) return;
+
+    form.addEventListener('submit', function (event) {
+        if (form.dataset.recaptchaReady === '1') return;
+        event.preventDefault();
+
+        if (typeof grecaptcha === 'undefined') {
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-warning small';
+            alert.textContent = 'Sistem keamanan belum siap. Tunggu sebentar lalu coba lagi.';
+            form.prepend(alert);
+            return;
+        }
+
+        grecaptcha.ready(function () {
+            grecaptcha.execute('<?= e(RECAPTCHA_SITE_KEY) ?>', { action: 'login' }).then(function (token) {
+                form.querySelector('[name="g-recaptcha-response"]').value = token;
+                form.dataset.recaptchaReady = '1';
+                form.submit();
+            });
+        });
+    });
+})();
+</script>
+<?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

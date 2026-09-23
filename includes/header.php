@@ -25,7 +25,7 @@ if ($user) {
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-<link href="<?= e(APP_URL) ?>/assets/css/app.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/refinements.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/dashboard-fixes.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/mobile-nav-fixes.css" rel="stylesheet">
+<link href="<?= e(APP_URL) ?>/assets/css/app.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/refinements.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/dashboard-fixes.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/mobile-nav-fixes.css" rel="stylesheet"><link href="<?= e(APP_URL) ?>/assets/css/mobile-commerce.css" rel="stylesheet">
 </head>
 <body>
 <div class="site-preloader" id="site-preloader" role="status" aria-label="Memuat KosCycle"><div class="preloader-orbit" aria-hidden="true"><span class="preloader-orbit-ring"></span><span class="preloader-orbit-dot"></span><span class="preloader-orbit-core"><span class="brand-dot"></span></span></div><div class="preloader-wordmark">Kos<span>Cycle</span></div><div class="preloader-track" aria-hidden="true"><span></span></div></div>
