@@ -5,19 +5,14 @@ require_once __DIR__ . '/includes/functions.php';
 $action = $_GET['action'] ?? null;
 
 if ($action === 'logout') {
-    if (
-        $_SERVER['REQUEST_METHOD'] !== 'POST'
-        || !verify_csrf()
-    ) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verify_csrf()) {
         http_response_code(405);
         exit('Metode logout tidak valid.');
     }
 
     $_SESSION = [];
-
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
-
         setcookie(
             session_name(),
             '',
@@ -30,7 +25,6 @@ if ($action === 'logout') {
     }
 
     session_destroy();
-
     redirect(APP_URL . '/');
 }
 
@@ -73,7 +67,7 @@ $allowedPages = [
     'admin-product-edit',
     'admin-orders',
     'admin-reviews',
-    'admin-reports'
+    'admin-reports',
 ];
 
 if (!in_array($page, $allowedPages, true)) {

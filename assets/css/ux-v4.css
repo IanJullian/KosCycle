@@ -1,0 +1,37 @@
+/* KosCycle V4 — auth/mobile/product upload hardening */
+.auth-login-page,.auth-register-page,.seller-product-form-page{min-width:0}
+.auth-login-page .auth-panel,.auth-register-page .auth-panel,.seller-product-form-page .auth-panel{min-width:0}
+.seller-image-preview-grid,.seller-image-existing-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.seller-image-preview-item,.seller-existing-image-card{position:relative;aspect-ratio:1/1;border-radius:13px;overflow:hidden;background:#edf3ee;border:1px solid rgba(23,33,31,.08)}
+.seller-image-preview-item img,.seller-existing-image-card img{width:100%;height:100%;display:block;object-fit:cover}
+.seller-image-preview-item span,.seller-existing-image-card .seller-image-number{position:absolute;left:7px;top:7px;padding:4px 7px;border-radius:999px;background:rgba(23,33,31,.76);color:#fff;font-size:.61rem;font-weight:700}
+.seller-existing-image-card .seller-image-controls{position:absolute;left:6px;right:6px;bottom:6px;display:grid;grid-template-columns:1fr auto;gap:5px;align-items:center;padding:6px;border-radius:10px;background:rgba(255,254,250,.92);backdrop-filter:blur(8px)}
+.seller-existing-image-card label{display:flex;align-items:center;gap:5px;margin:0;font-size:.61rem;font-weight:700;color:var(--ink)}
+.seller-existing-image-card input{margin:0}
+.seller-upload-help{display:flex;gap:8px;align-items:flex-start;margin-top:8px;padding:10px 11px;border-radius:11px;background:rgba(168,216,200,.13);color:#53645f;font-size:.72rem;line-height:1.45}
+.seller-upload-help i{color:var(--teal);margin-top:1px}
+
+@media(max-width:767px){
+  .auth-section{min-height:100dvh!important;padding:92px 14px calc(44px + env(safe-area-inset-bottom))!important;align-items:flex-start!important}
+  .auth-shell{display:block!important;max-width:100%!important;margin:0 auto!important}
+  .auth-intro{margin-bottom:18px}
+  .auth-intro h1{font-size:clamp(2.05rem,10vw,2.85rem)!important;line-height:1!important;margin:12px 0!important}
+  .auth-intro p{font-size:.88rem;line-height:1.55;margin-bottom:16px!important}
+  .auth-panel{padding:20px 15px!important;border-radius:17px!important;box-shadow:0 18px 45px rgba(23,33,31,.10)!important}
+  .auth-heading{margin-bottom:17px!important}
+  .auth-heading h2{font-size:1.15rem!important}
+  .auth-heading p{font-size:.78rem!important}
+  .auth-login-page{padding-top:calc(68px + 20px + env(safe-area-inset-top))!important}
+  .auth-login-page .auth-intro{display:none!important}
+  .auth-login-page .auth-panel{margin:0 auto!important;width:100%!important;max-width:460px!important}
+  .auth-register-page .auth-intro .benefit-list{display:none}
+  .seller-product-form-page .auth-intro{display:block}
+  .seller-product-form-page .auth-panel{margin-top:12px}
+  .form-control,.form-select{font-size:16px!important}
+  .navbar.glass-nav{z-index:1300!important}
+}
+@media(max-width:575px){
+  .seller-image-preview-grid,.seller-image-existing-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .seller-existing-image-card .seller-image-controls{grid-template-columns:1fr}
+  .auth-login-page .recaptcha-placeholder{font-size:.68rem}
+}

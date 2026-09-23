@@ -1,12 +1,13 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/MidtransConfig.php';
-
 class PaymentService
 {
-    public function createPaymentForOrder(int $orderId, int $buyerId): array
-    {
+    public function createPaymentForOrder(
+        int $orderId,
+        int $buyerId,
+        bool $allowLocalSandboxDemo = false
+    ): array {
         $pdo = db();
 
         $stmt = $pdo->prepare(
@@ -32,7 +33,6 @@ class PaymentService
                 u.whatsapp
              LIMIT 1"
         );
-
         $stmt->execute([$orderId, $buyerId]);
         $order = $stmt->fetch();
 
@@ -40,8 +40,7 @@ class PaymentService
             throw new RuntimeException('Pesanan tidak ditemukan.');
         }
 
-        // Alur baru: pembayaran dilakukan segera setelah checkout, sebelum
-        // seller menerima/memproses pesanan.
+        // Pay-first: buyer boleh membayar segera setelah checkout.
         if (!in_array((string) $order['status'], ['requested', 'accepted'], true)) {
             throw new RuntimeException('Pesanan ini sudah tidak dapat dibayar.');
         }
@@ -51,23 +50,35 @@ class PaymentService
             throw new RuntimeException('Total pembayaran tidak valid.');
         }
 
-        $paymentStmt = $pdo->prepare(
-            "SELECT * FROM payments WHERE order_id = ? LIMIT 1"
-        );
+        $paymentStmt = $pdo->prepare('SELECT * FROM payments WHERE order_id = ? LIMIT 1');
         $paymentStmt->execute([$orderId]);
         $payment = $paymentStmt->fetch() ?: null;
 
         if ($payment && $payment['payment_status'] === 'paid') {
-            throw new RuntimeException('Pesanan ini sudah dibayar.');
+            return $payment;
         }
 
+        // Jangan membuat transaksi Midtrans baru setiap kali halaman dibuka.
         if ($payment
-            && $payment['payment_status'] === 'pending'
+            && in_array((string) $payment['payment_status'], ['unpaid', 'pending'], true)
             && !empty($payment['snap_token'])) {
             return $payment;
         }
 
         $midtransOrderId = 'KOSCYCLE-' . $orderId . '-' . date('YmdHis');
+        $snapToken = null;
+        $midtransError = null;
+        $midtransConfigured = MIDTRANS_SERVER_KEY !== '' && MIDTRANS_CLIENT_KEY !== '';
+
+        if ($midtransConfigured) {
+            \Midtrans\Config::$serverKey = MIDTRANS_SERVER_KEY;
+            \Midtrans\Config::$isProduction = MIDTRANS_IS_PRODUCTION;
+            \Midtrans\Config::$isSanitized = true;
+            \Midtrans\Config::$is3ds = true;
+        } elseif (!$allowLocalSandboxDemo) {
+            throw new RuntimeException('Midtrans Server Key atau Client Key belum diisi.');
+        }
+
         $params = [
             'transaction_details' => [
                 'order_id' => $midtransOrderId,
@@ -80,10 +91,25 @@ class PaymentService
             ],
         ];
 
-        try {
-            $snapToken = \Midtrans\Snap::getSnapToken($params);
-        } catch (Throwable $e) {
-            throw new RuntimeException('Gagal membuat transaksi Midtrans. Periksa Server Key dan koneksi hosting.');
+        if ($midtransConfigured) {
+            try {
+                $snapToken = \Midtrans\Snap::getSnapToken($params);
+            } catch (Throwable $e) {
+                $midtransError = $e;
+                if (!$allowLocalSandboxDemo) {
+                    throw new RuntimeException(
+                        'Gagal membuat transaksi Midtrans. Periksa Server Key dan koneksi hosting.'
+                    );
+                }
+            }
+        } else {
+            $midtransError = new RuntimeException('Midtrans Sandbox belum dikonfigurasi.');
+        }
+
+        if ($midtransError !== null) {
+            // Sandbox demo fallback: tetap buat record pembayaran lokal supaya
+            // tombol simulator dapat dipakai walau Snap Sandbox tidak terjangkau.
+            $midtransOrderId = 'KOSCYCLE-DEMO-' . $orderId . '-' . date('YmdHis');
         }
 
         if ($payment) {
@@ -117,13 +143,17 @@ class PaymentService
             $insert->execute([$orderId, $midtransOrderId, $snapToken, $grossAmount]);
         }
 
-        $resultStmt = $pdo->prepare("SELECT * FROM payments WHERE order_id = ? LIMIT 1");
+        $resultStmt = $pdo->prepare('SELECT * FROM payments WHERE order_id = ? LIMIT 1');
         $resultStmt->execute([$orderId]);
         $result = $resultStmt->fetch();
 
         if (!$result) {
             throw new RuntimeException('Data pembayaran gagal disimpan.');
         }
+
+        // Marker non-persisten agar UI dapat menjelaskan kenapa hanya tombol
+        // simulator yang tersedia. Tidak ada detail secret/error yang diekspos.
+        $result['_midtrans_unavailable'] = $midtransError !== null;
 
         return $result;
     }

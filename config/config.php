@@ -10,7 +10,13 @@ $localConfig = is_array($localConfig) ? $localConfig : [];
 
 define('APP_NAME', (string) ($localConfig['APP_NAME'] ?? 'KosCycle'));
 define('APP_ENV', (string) ($localConfig['APP_ENV'] ?? 'local'));
-define('APP_URL', rtrim((string) ($localConfig['APP_URL'] ?? 'http://localhost/KosCycle'), '/'));
+
+$rawAppUrl = trim((string) ($localConfig['APP_URL'] ?? 'http://localhost/KosCycle'));
+if ($rawAppUrl !== '' && !preg_match('~^https?://~i', $rawAppUrl)) {
+    $requestIsHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $rawAppUrl = ($requestIsHttps ? 'https://' : 'http://') . ltrim($rawAppUrl, '/');
+}
+define('APP_URL', rtrim($rawAppUrl, '/'));
 
 define('DB_HOST', (string) ($localConfig['DB_HOST'] ?? '127.0.0.1'));
 define('DB_NAME', (string) ($localConfig['DB_NAME'] ?? 'koscycle'));
@@ -37,3 +43,6 @@ define('MIDTRANS_MERCHANT_ID', (string) ($localConfig['MIDTRANS_MERCHANT_ID'] ??
 define('MIDTRANS_CLIENT_KEY', (string) ($localConfig['MIDTRANS_CLIENT_KEY'] ?? ''));
 define('MIDTRANS_SERVER_KEY', (string) ($localConfig['MIDTRANS_SERVER_KEY'] ?? ''));
 define('MIDTRANS_IS_PRODUCTION', (bool) ($localConfig['MIDTRANS_IS_PRODUCTION'] ?? false));
+
+// Hanya untuk demo/testing Sandbox. Wajib false pada pembayaran production.
+define('MIDTRANS_DEMO_TOOLS', (bool) ($localConfig['MIDTRANS_DEMO_TOOLS'] ?? false));

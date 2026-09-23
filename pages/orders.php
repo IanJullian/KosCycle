@@ -1,142 +1,30 @@
 <?php
-require_once __DIR__ . '/../includes/authorization.php';
+require_once __DIR__.'/../includes/authorization.php';
 require_role('customer');
-require_once __DIR__ . '/../includes/Repositories/OrderRepository.php';
+require_once __DIR__.'/../includes/Repositories/OrderRepository.php';
+require_once __DIR__.'/../includes/pagination.php';
 
-$repo = new OrderRepository();
-$userId = (int) $_SESSION['user_id'];
-$orders = $repo->byBuyer($userId);
-$selected = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-$details = $selected ? $repo->items((int) $selected, $userId) : [];
-
-$statusLabels = [
-    'requested' => 'Menunggu pembayaran / seller',
-    'accepted' => 'Sedang diproses',
-    'completed' => 'Selesai',
-    'cancelled' => 'Dibatalkan',
-];
-
-$paymentLabels = [
-    'unpaid' => 'Belum dibayar',
-    'pending' => 'Menunggu konfirmasi pembayaran',
-    'paid' => 'Sudah dibayar',
-    'failed' => 'Pembayaran gagal',
-    'expired' => 'Pembayaran kedaluwarsa',
-    'cancelled' => 'Pembayaran dibatalkan',
-];
-
-$pageTitle = 'Riwayat Pesanan';
-require __DIR__ . '/../includes/header.php';
+$repo=new OrderRepository();$uid=(int)$_SESSION['user_id'];
+$total=$repo->buyerCount($uid);$pager=pager_meta($total,(int)($_GET['p']??1),8);
+$orders=$repo->byBuyerPage($uid,$pager['per_page'],$pager['offset']);
+$status=['requested'=>'Menunggu seller','accepted'=>'Diproses','completed'=>'Selesai','cancelled'=>'Dibatalkan'];
+$payments=['unpaid'=>'Belum dibayar','pending'=>'Menunggu pembayaran','paid'=>'Sudah dibayar','failed'=>'Gagal','expired'=>'Kedaluwarsa','cancelled'=>'Dibatalkan'];
+$pageTitle='Riwayat Pesanan';require __DIR__.'/../includes/header.php';
 ?>
-<link rel="stylesheet" href="<?= e(APP_URL) ?>/assets/css/order-review-polish.css">
-
-<section class="section-padding page-section orders-page">
-    <div class="container">
-        <div class="page-toolbar"><?= back_link('customer-dashboard','Kembali ke dashboard customer') ?></div>
-
-        <div class="section-heading mb-4">
-            <span class="eyebrow">Pesanan</span>
-            <h2>Riwayat <em>transaksi.</em></h2>
-            <p class="text-muted mb-0">Bayar pesanan lebih dulu, lalu seller memproses setelah pembayaran terkonfirmasi.</p>
-        </div>
-
-        <div class="row g-4">
-            <div class="col-lg-7">
-                <?php if (!$orders): ?>
-                    <div class="glass-card order-empty-card">
-                        <span class="order-empty-icon"><i class="bi bi-bag"></i></span>
-                        <h3>Belum ada pesanan</h3>
-                        <p>Pesananmu akan muncul di sini setelah checkout.</p>
-                        <a class="btn btn-primary" href="<?= e(page_url('marketplace')) ?>">Lihat katalog</a>
-                    </div>
-                <?php endif; ?>
-
-                <?php foreach ($orders as $o): ?>
-                    <?php $paymentStatusList = (string) ($o['payment_status'] ?? 'unpaid'); ?>
-                    <a class="order-list-link" href="<?= e(page_url('orders',['id'=>$o['id']])) ?>">
-                        <div class="glass-card order-list-card <?= $selected && (int)$selected === (int)$o['id'] ? 'is-selected' : '' ?>">
-                            <div>
-                                <small>Pesanan #<?= (int)$o['id'] ?></small>
-                                <strong><?= format_price((int)$o['total']) ?></strong>
-                                <span><?= e((string)$o['created_at']) ?> · <?= (int)$o['item_count'] ?> item</span>
-                                <span class="small mt-1"><i class="bi bi-credit-card me-1"></i><?= e($paymentLabels[$paymentStatusList] ?? $paymentStatusList) ?></span>
-                            </div>
-                            <span class="order-status-badge status-<?= e((string)$o['status']) ?>"><?= e($statusLabels[$o['status']] ?? $o['status']) ?></span>
-                        </div>
-                    </a>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="col-lg-5">
-                <?php if ($details): ?>
-                    <?php
-                    $paymentStatus = (string)($details[0]['payment_status'] ?? 'unpaid');
-                    $paymentType = (string)($details[0]['payment_type'] ?? '');
-                    $orderStatus = (string)$details[0]['status'];
-                    $orderTotal = (int)array_sum(array_map(static fn(array $row): int => (int)$row['line_total'],$details));
-                    $canPay = in_array($orderStatus,['requested','accepted'],true) && $paymentStatus !== 'paid';
-                    ?>
-                    <div class="glass-card order-detail-card">
-                        <div class="order-detail-head">
-                            <div><span class="eyebrow">Detail #<?= (int)$selected ?></span><h3><?= e($statusLabels[$orderStatus] ?? $orderStatus) ?></h3></div>
-                            <span class="order-detail-total"><?= format_price($orderTotal) ?></span>
-                        </div>
-
-                        <div class="order-note mb-3">
-                            <i class="bi bi-credit-card me-2"></i>
-                            <span>
-                                <strong>Status pembayaran</strong>
-                                <?= e($paymentLabels[$paymentStatus] ?? $paymentStatus) ?>
-                                <?php if ($paymentType): ?><small class="d-block text-muted">Metode: <?= e($paymentType) ?></small><?php endif; ?>
-                            </span>
-                        </div>
-
-                        <?php if (!empty($details[0]['note'])): ?>
-                            <div class="order-note"><i class="bi bi-sticky me-2"></i><span><strong>Catatan</strong><?= nl2br(e((string)$details[0]['note'])) ?></span></div>
-                        <?php endif; ?>
-
-                        <?php if ($canPay): ?>
-                            <a class="btn btn-primary w-100 mt-3" href="<?= e(page_url('payment',['id'=>$selected])) ?>"><i class="bi bi-credit-card me-2"></i><?= $paymentStatus === 'pending' ? 'Lanjutkan pembayaran' : 'Bayar sekarang dengan Midtrans' ?></a>
-                            <div class="alert alert-info mt-3 mb-0"><i class="bi bi-info-circle me-2"></i>Seller akan dapat memproses pesanan setelah pembayaran berstatus <strong>Sudah dibayar</strong>.</div>
-                        <?php elseif ($paymentStatus === 'paid'): ?>
-                            <div class="alert alert-success mt-3 mb-0"><i class="bi bi-check-circle-fill me-2"></i>Pembayaran berhasil dikonfirmasi. Seller sekarang dapat memproses pesanan.</div>
-                        <?php endif; ?>
-
-                        <div class="order-detail-items mt-4">
-                            <?php foreach ($details as $d): ?>
-                                <div class="order-detail-item">
-                                    <div>
-                                        <strong><?= e((string)$d['product_name']) ?></strong>
-                                        <span><?= (int)$d['quantity'] ?> × <?= format_price((int)$d['unit_price']) ?></span>
-                                        <small>Seller: <?= e((string)$d['seller_name']) ?></small>
-                                    </div>
-                                    <strong><?= format_price((int)$d['line_total']) ?></strong>
-                                </div>
-
-                                <?php if ($d['status'] === 'completed'): ?>
-                                    <?php if ($d['review_id']): ?>
-                                        <div class="order-reviewed-state">
-                                            <div><span><i class="bi bi-check-circle-fill me-1"></i>Sudah diulas</span><small>Ulasanmu tersimpan</small></div>
-                                            <div class="order-stars" aria-label="Rating <?= (int)$d['review_rating'] ?> dari 5">
-                                                <?php for($i=1;$i<=5;$i++): ?><i class="bi <?= $i <= (int)$d['review_rating'] ? 'bi-star-fill' : 'bi-star' ?>"></i><?php endfor; ?>
-                                                <strong><?= (int)$d['review_rating'] ?>/5</strong>
-                                            </div>
-                                        </div>
-                                    <?php else: ?>
-                                        <div class="order-review-action">
-                                            <div><strong>Pesanan selesai</strong><small>Bagikan pengalamanmu untuk produk ini.</small></div>
-                                            <a class="btn btn-soft btn-sm" href="<?= e(page_url('review',['product_id'=>$d['product_id']])) ?>"><i class="bi bi-star me-1"></i>Ulas</a>
-                                        </div>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <div class="glass-card order-detail-card order-detail-placeholder"><i class="bi bi-receipt"></i><strong>Pilih pesanan</strong><span>Detail pembayaran dan item akan tampil di sini.</span></div>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-</section>
-<?php require __DIR__ . '/../includes/footer.php'; ?>
+<link rel="stylesheet" href="<?=e(APP_URL)?>/assets/css/order-review-polish.css">
+<section class="section-padding page-section orders-page"><div class="container">
+<div class="page-toolbar"><?=back_link('customer-dashboard','Kembali ke dashboard')?></div>
+<div class="section-heading mb-4"><span class="eyebrow">Pesanan</span><h2>Riwayat <em>transaksi.</em></h2><p class="text-muted">Nomor pesanan dihitung khusus untuk akunmu, bukan ID global sistem.</p></div>
+<div class="kc-result-meta"><?=$total?> pesanan · halaman <?=$pager['page']?> dari <?=$pager['pages']?></div>
+<?php if(!$orders):?><div class="glass-card empty-state"><span><i class="bi bi-bag"></i></span><h2>Belum ada pesanan</h2><p>Pesananmu akan muncul di sini.</p></div><?php endif;?>
+<div class="row g-3">
+<?php foreach($orders as $o):$ps=(string)($o['payment_status']??'unpaid');?>
+<div class="col-12"><article class="glass-card p-4 d-flex justify-content-between align-items-center gap-3 flex-wrap">
+<div><span class="kc-order-local">Pesanan #<?=(int)$o['local_order_no']?></span><small class="kc-order-internal d-block">Referensi sistem: <?=e(date('Ymd',strtotime((string)$o['created_at'])))?>-<?=(int)$o['id']?></small><strong class="d-block mt-2"><?=format_price((int)$o['total'])?></strong><small class="text-muted"><?=(int)$o['item_count']?> item · <?=e((string)$o['created_at'])?></small></div>
+<div class="d-flex align-items-center gap-2 flex-wrap"><span class="badge text-bg-light"><?=e($status[$o['status']]??$o['status'])?></span><span class="badge text-bg-light"><?=e($payments[$ps]??$ps)?></span><a class="btn btn-primary btn-sm" href="<?=e(page_url('order-detail',['id'=>$o['id']]))?>">Detail</a></div>
+</article></div>
+<?php endforeach;?>
+</div>
+<?=pager_render($pager)?>
+</div></section>
+<?php require __DIR__.'/../includes/footer.php';?>
