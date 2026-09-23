@@ -1,43 +1,16 @@
 <?php
 declare(strict_types=1);
 
-// Accept both the preferred config/.env.php location and the legacy root .env.php.
-$configCandidates = [
-    __DIR__ . '/.env.php',
-    __DIR__ . '/.env',
-    dirname(__DIR__) . '/.env.php',
-    dirname(__DIR__) . '/.env',
-];
-$localConfigPath = null;
-foreach ($configCandidates as $candidate) {
-    if (is_file($candidate)) {
-        $localConfigPath = $candidate;
-        break;
-    }
-}
-$localConfig = $localConfigPath !== null ? require $localConfigPath : [];
+$localConfigPath = is_file(__DIR__ . '/.env.php')
+    ? __DIR__ . '/.env.php'
+    : __DIR__ . '/.env';
+
+$localConfig = is_file($localConfigPath) ? require $localConfigPath : [];
 $localConfig = is_array($localConfig) ? $localConfig : [];
 
 define('APP_NAME', (string) ($localConfig['APP_NAME'] ?? 'KosCycle'));
 define('APP_ENV', (string) ($localConfig['APP_ENV'] ?? 'local'));
-
-// Normalize deployed values such as "koscycle.page.gd" into a valid absolute URL.
-$appUrl = trim((string) ($localConfig['APP_URL'] ?? ''));
-if ($appUrl !== '' && !preg_match('~^https?://~i', $appUrl)) {
-    $appUrl = 'https://' . ltrim($appUrl, '/');
-}
-
-// When APP_URL is omitted, derive it from the current request so hosted assets
-// and internal links do not silently fall back to localhost.
-if ($appUrl === '' && isset($_SERVER['HTTP_HOST'])) {
-    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $basePath = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/'))), '/');
-    $appUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . ($basePath === '/' ? '' : $basePath);
-}
-if ($appUrl === '') {
-    $appUrl = 'http://localhost/KosCycle';
-}
-define('APP_URL', rtrim($appUrl, '/'));
+define('APP_URL', rtrim((string) ($localConfig['APP_URL'] ?? 'http://localhost/KosCycle'), '/'));
 
 define('DB_HOST', (string) ($localConfig['DB_HOST'] ?? '127.0.0.1'));
 define('DB_NAME', (string) ($localConfig['DB_NAME'] ?? 'koscycle'));
@@ -59,3 +32,8 @@ define('SMTP_USERNAME', (string) ($localConfig['SMTP_USERNAME'] ?? ''));
 define('SMTP_PASSWORD', (string) ($localConfig['SMTP_PASSWORD'] ?? ''));
 
 define('WHATSAPP_OTP_ENABLED', (bool) ($localConfig['WHATSAPP_OTP_ENABLED'] ?? false));
+
+define('MIDTRANS_MERCHANT_ID', (string) ($localConfig['MIDTRANS_MERCHANT_ID'] ?? ''));
+define('MIDTRANS_CLIENT_KEY', (string) ($localConfig['MIDTRANS_CLIENT_KEY'] ?? ''));
+define('MIDTRANS_SERVER_KEY', (string) ($localConfig['MIDTRANS_SERVER_KEY'] ?? ''));
+define('MIDTRANS_IS_PRODUCTION', (bool) ($localConfig['MIDTRANS_IS_PRODUCTION'] ?? false));

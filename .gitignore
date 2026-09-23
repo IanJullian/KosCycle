@@ -1,4 +1,7 @@
+.env.php
 /config/.env.php
 /config/.env
-/uploads/*
-!/uploads/.gitkeep
+/vendor/
+/.idea/
+/.vscode/
+.DS_Store

@@ -7,16 +7,32 @@ namespace Composer\Autoload;
 class ComposerStaticInit826f515f5ef16946d3e3ee3e3205b25e
 {
     public static $prefixLengthsPsr4 = array (
+        'S' => 
+        array (
+            'SnapBi\\' => 7,
+        ),
         'P' => 
         array (
             'PHPMailer\\PHPMailer\\' => 20,
         ),
+        'M' => 
+        array (
+            'Midtrans\\' => 9,
+        ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'SnapBi\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/midtrans/midtrans-php/SnapBi',
+        ),
         'PHPMailer\\PHPMailer\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpmailer/phpmailer/src',
+        ),
+        'Midtrans\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/midtrans/midtrans-php/Midtrans',
         ),
     );
 

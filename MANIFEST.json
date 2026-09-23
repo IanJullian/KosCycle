@@ -1,0 +1,22 @@
+{
+  "type": "KosCycle Midtrans Integration Pack",
+  "mode": "Midtrans Sandbox",
+  "contains_full_project": false,
+  "note": "This ZIP is a drop-in integration pack for the existing KosCycle repository. Existing assets and unrelated project files are intentionally not duplicated.",
+  "files": [
+    ".gitignore",
+    "README-MIDTRANS.md",
+    "composer.json",
+    "config/.env.php.example",
+    "config/config.php",
+    "database.mysql",
+    "includes/Repositories/OrderRepository.php",
+    "includes/Services/MidtransConfig.php",
+    "includes/Services/PaymentService.php",
+    "index.php",
+    "pages/orders.php",
+    "pages/payment.php",
+    "pages/seller-orders.php",
+    "tools/midtrans/notification.php"
+  ]
+}

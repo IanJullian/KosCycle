@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
   quantity INT UNSIGNED NOT NULL DEFAULT 1,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT uq_cart_product UNIQUE (cart_id, product_id),
+  UNIQUE KEY uq_cart_product (cart_id, product_id),
   CONSTRAINT fk_cart_items_cart FOREIGN KEY (cart_id) REFERENCES carts(id) ON DELETE CASCADE,
   CONSTRAINT fk_cart_items_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -158,10 +158,68 @@ CREATE TABLE IF NOT EXISTS reviews (
   CONSTRAINT chk_reviews_rating CHECK (rating BETWEEN 1 AND 5)
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO categories (name) VALUES ('Furnitur'),('Organisasi'),('Dapur'),('Elektronik'),('Pakaian'),('Buku'),('Lainnya');
-INSERT IGNORE INTO product_inventory (product_id, quantity) SELECT id, 0 FROM products;
+-- Midtrans payment record per KosCycle order.
+CREATE TABLE IF NOT EXISTS payments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  midtrans_order_id VARCHAR(80) NOT NULL UNIQUE,
+  transaction_id VARCHAR(100) NULL,
+  snap_token TEXT NULL,
+  payment_status ENUM(
+    'unpaid',
+    'pending',
+    'paid',
+    'failed',
+    'expired',
+    'cancelled'
+  ) NOT NULL DEFAULT 'unpaid',
+  payment_type VARCHAR(50) NULL,
+  fraud_status VARCHAR(30) NULL,
+  gross_amount INT UNSIGNED NOT NULL,
+  transaction_time DATETIME NULL,
+  settlement_time DATETIME NULL,
+  paid_at DATETIME NULL,
+  raw_notification JSON NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT uq_payments_order UNIQUE (order_id),
+  CONSTRAINT fk_payments_order
+    FOREIGN KEY (order_id)
+    REFERENCES orders(id)
+    ON DELETE CASCADE,
+  INDEX idx_payments_status (payment_status),
+  INDEX idx_payments_transaction (transaction_id)
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO categories (name) VALUES
+('Furnitur'),
+('Organisasi'),
+('Dapur'),
+('Elektronik'),
+('Pakaian'),
+('Buku'),
+('Lainnya');
+
+INSERT IGNORE INTO product_inventory (product_id, quantity)
+SELECT id, 0 FROM products;
 
 -- Development admin account requested by project owner.
 -- INSERT IGNORE preserves an already-existing user record instead of overwriting it.
-INSERT IGNORE INTO users (full_name, username, whatsapp, email, password_hash, role, status)
-VALUES ('Admin KosCycle', 'KosaKataKita26', '6289695512607', 'admin@koscycle.local', '$2y$12$8jTHCiQfSro0PyoAHzzdVOwazseyhKtPIdV0J86CHIZVICOSXZgA2', 'admin', 'active');
+INSERT IGNORE INTO users (
+  full_name,
+  username,
+  whatsapp,
+  email,
+  password_hash,
+  role,
+  status
+)
+VALUES (
+  'Admin KosCycle',
+  'KosaKataKita26',
+  '6289695512607',
+  'admin@koscycle.local',
+  '$2y$12$8jTHCiQfSro0PyoAHzzdVOwazseyhKtPIdV0J86CHIZVICOSXZgA2',
+  'admin',
+  'active'
+);
