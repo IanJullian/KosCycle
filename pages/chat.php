@@ -13,6 +13,34 @@ $conversationId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT) ?: 0;
 $newMode = $_GET['new'] ?? '';
 $isAjax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 
+/**
+ * Cari thread pengaduan terbuka milik user. Satu user cukup punya satu
+ * ruang bantuan aktif agar tombol "Hubungi admin" tidak membuat chat baru
+ * berulang-ulang.
+ */
+$findOpenSupportId = static function (int $uid, string $userRole): int {
+    if (!in_array($userRole, ['customer', 'seller'], true)) {
+        return 0;
+    }
+
+    $column = $userRole === 'customer' ? 'customer_id' : 'seller_id';
+    $stmt = db()->prepare("SELECT id FROM chat_conversations
+        WHERE type = 'support' AND status = 'open' AND {$column} = ?
+        ORDER BY COALESCE(last_message_at, updated_at, created_at) DESC, id DESC
+        LIMIT 1");
+    $stmt->execute([$uid]);
+    return (int) ($stmt->fetchColumn() ?: 0);
+};
+
+// Jika thread bantuan sudah ada, langsung buka thread tersebut. Jangan
+// tampilkan form pembuatan pengaduan baru setiap kali tombol diklik.
+if ($newMode === 'support' && in_array($role, ['customer', 'seller'], true)) {
+    $existingSupportId = $findOpenSupportId($userId, $role);
+    if ($existingSupportId > 0) {
+        redirect(page_url('chat', ['id' => $existingSupportId]));
+    }
+}
+
 if ($action === 'messages') {
     header('Content-Type: application/json; charset=utf-8');
     try {
@@ -32,7 +60,6 @@ if ($action === 'messages') {
             'ok' => true,
             'conversation' => $conversation,
             'messages' => $messages,
-            // Hanya pesan milik user saat ini yang bisa memiliki centang.
             // 1 centang = tersimpan di server, 2 centang = recipient sudah membuka/read.
             'read_upto' => $chat->readUpto($conversationId, $userId, $role),
             'unread' => $chat->unreadCount($userId, $role),
@@ -70,7 +97,19 @@ if (is_post()) {
         }
 
         if ($formAction === 'start_support') {
-            $redirectId = $chat->startSupport($userId, $role, (string) ($_POST['subject'] ?? ''), (string) ($_POST['body'] ?? ''));
+            $subject = (string) ($_POST['subject'] ?? '');
+            $body = (string) ($_POST['body'] ?? '');
+
+            // Gunakan thread support yang masih terbuka. Pesan baru cukup
+            // ditambahkan ke percakapan lama, sehingga inbox admin tetap rapi.
+            $existingSupportId = $findOpenSupportId($userId, $role);
+            if ($existingSupportId > 0) {
+                $redirectId = $existingSupportId;
+                $chat->sendMessage($redirectId, $userId, $role, $body);
+            } else {
+                $redirectId = $chat->startSupport($userId, $role, $subject, $body);
+            }
+
             if ($isAjax) {
                 header('Content-Type: application/json; charset=utf-8');
                 echo json_encode(['ok' => true, 'conversation_id' => $redirectId], JSON_UNESCAPED_UNICODE);
@@ -151,7 +190,7 @@ require __DIR__ . '/../includes/header.php';
 
                 <?php if (in_array($role, ['customer', 'seller'], true)): ?>
                     <a class="chat-support-button" href="<?= e(page_url('chat', ['new' => 'support'])) ?>">
-                        <i class="bi bi-life-preserver"></i><span><strong>Hubungi admin</strong><small>Pengaduan, bantuan, atau kendala</small></span><i class="bi bi-arrow-right"></i>
+                        <i class="bi bi-life-preserver"></i><span><strong>Hubungi admin</strong><small>Gunakan satu chat bantuan yang sama</small></span><i class="bi bi-arrow-right"></i>
                     </a>
                 <?php endif; ?>
 
@@ -186,12 +225,13 @@ require __DIR__ . '/../includes/header.php';
                     <div class="chat-product-context"><i class="bi <?= $selected['type'] === 'support' ? 'bi-life-preserver' : 'bi-box-seam' ?>"></i><div><small><?= $selected['type'] === 'support' ? 'Topik pengaduan' : 'Produk yang dibahas' ?></small><strong><?= e((string) ($selected['type'] === 'support' ? ($selected['subject'] ?: 'Bantuan KosCycle') : ($selected['product_name'] ?: 'Produk'))) ?></strong></div></div>
 
                     <div class="chat-messages" id="chat-messages" data-conversation-id="<?= (int) $selected['id'] ?>" data-current-user="<?= $userId ?>">
-                        <?php foreach ($messages as $m): $isMe = (int) $m['sender_id'] === $userId; $read = $isMe && $m['read_at'] !== null; ?>
+                        <?php foreach ($messages as $m): ?>
+                            <?php $isMe = (int) $m['sender_id'] === $userId; $read = $isMe && $m['read_at'] !== null; $receiptRead = $isMe ? $read : true; ?>
                             <div class="chat-message-row <?= $isMe ? 'is-me' : 'is-them' ?>" data-message-id="<?= (int) $m['id'] ?>">
                                 <div class="chat-message-bubble">
                                     <?php if (!$isMe): ?><small class="chat-sender-label"><?= e((string) $m['sender_name']) ?></small><?php endif; ?>
                                     <div><?= nl2br(e((string) $m['body'])) ?></div>
-                                    <div class="chat-message-meta"><time><?= e(date('H:i', strtotime((string) $m['created_at']))) ?></time><?php if ($isMe): ?><span class="chat-read-receipt <?= $read ? 'is-read' : 'is-sent' ?>" data-chat-receipt="1" title="<?= $read ? 'Sudah dibaca' : 'Terkirim' ?>" aria-label="<?= $read ? 'Sudah dibaca' : 'Terkirim' ?>"><i class="bi <?= $read ? 'bi-check2-all' : 'bi-check2' ?>"></i></span><?php endif; ?></div>
+                                    <div class="chat-message-meta"><time><?= e(date('H:i', strtotime((string) $m['created_at']))) ?></time><span class="chat-read-receipt <?= $receiptRead ? 'is-read' : 'is-sent' ?> <?= !$isMe ? 'is-incoming' : '' ?>" data-chat-receipt="1" title="<?= $isMe ? ($read ? 'Sudah dibaca oleh penerima' : 'Terkirim') : 'Sudah dibaca oleh kamu' ?>" aria-label="<?= $isMe ? ($read ? 'Sudah dibaca oleh penerima' : 'Terkirim') : 'Sudah dibaca oleh kamu' ?>"><i class="bi <?= $receiptRead ? 'bi-check2-all' : 'bi-check2' ?>"></i></span></div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -232,7 +272,7 @@ require __DIR__ . '/../includes/header.php';
         return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     };
 
-    const receiptHtml = (read = false) => `<span class="chat-read-receipt ${read ? 'is-read' : 'is-sent'}" data-chat-receipt="1" title="${read ? 'Sudah dibaca' : 'Terkirim'}" aria-label="${read ? 'Sudah dibaca' : 'Terkirim'}"><i class="bi ${read ? 'bi-check2-all' : 'bi-check2'}"></i></span>`;
+    const receiptHtml = (read = false, isMe = true) => `<span class="chat-read-receipt ${read ? 'is-read' : 'is-sent'} ${isMe ? '' : 'is-incoming'}" data-chat-receipt="1" title="${isMe ? (read ? 'Sudah dibaca oleh penerima' : 'Terkirim') : 'Sudah dibaca oleh kamu'}" aria-label="${isMe ? (read ? 'Sudah dibaca oleh penerima' : 'Terkirim') : 'Sudah dibaca oleh kamu'}"><i class="bi ${read ? 'bi-check2-all' : 'bi-check2'}"></i></span>`;
 
     const appendMessage = (message) => {
         const messageId = Number(message.id || 0);
@@ -262,7 +302,7 @@ require __DIR__ . '/../includes/header.php';
         const time = document.createElement('time');
         time.textContent = formatTime(message.created_at);
         meta.appendChild(time);
-        if (isMe) meta.insertAdjacentHTML('beforeend', receiptHtml(Boolean(message.read_at)));
+        meta.insertAdjacentHTML('beforeend', receiptHtml(isMe ? Boolean(message.read_at) : true, isMe));
         bubble.appendChild(meta);
 
         row.appendChild(bubble);
@@ -279,8 +319,8 @@ require __DIR__ . '/../includes/header.php';
             if (!receipt || id > maxReadId) return;
             receipt.classList.remove('is-sent');
             receipt.classList.add('is-read');
-            receipt.title = 'Sudah dibaca';
-            receipt.setAttribute('aria-label', 'Sudah dibaca');
+            receipt.title = 'Sudah dibaca oleh penerima';
+            receipt.setAttribute('aria-label', 'Sudah dibaca oleh penerima');
             const icon = receipt.querySelector('i');
             if (icon) { icon.classList.remove('bi-check2'); icon.classList.add('bi-check2-all'); }
         });
